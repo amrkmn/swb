@@ -56,7 +56,7 @@ export function findInstalledManifest(app: string): FoundManifest | null {
             try {
                 const raw = readFileSync(manifestPath, "utf8");
                 const data = JSON.parse(raw);
-                
+
                 // Also check install.json for bucket info
                 const installJsonPath = path.join(prefix, "install.json");
                 let bucketInfo = null;
@@ -71,7 +71,7 @@ export function findInstalledManifest(app: string): FoundManifest | null {
                         // ignore install.json parse errors
                     }
                 }
-                
+
                 return {
                     source: "installed",
                     scope: sp.scope,
@@ -88,7 +88,9 @@ export function findInstalledManifest(app: string): FoundManifest | null {
     return null;
 }
 
-function findAllBucketsInScope(scope: "user" | "global"): { name: string; bucketDir: string }[] {
+export function findAllBucketsInScope(
+    scope: "user" | "global"
+): { name: string; bucketDir: string }[] {
     const sp = resolveScoopPaths(scope);
     const bucketsRoot = sp.buckets; // <root>\buckets
     if (!existsSync(bucketsRoot)) return [];
@@ -100,7 +102,7 @@ function findAllBucketsInScope(scope: "user" | "global"): { name: string; bucket
     } catch {
         return [];
     }
-    return names.map((name) => ({
+    return names.map(name => ({
         name,
         bucketDir: path.join(bucketsRoot, name, "bucket"),
     }));
@@ -238,7 +240,7 @@ export function readManifestFields(app: string, fm: FoundManifest): InfoFields {
     if (typeof m.version === "string") fields.version = m.version;
     if (typeof m.description === "string") fields.description = m.description;
     if (typeof m.homepage === "string") fields.homepage = m.homepage;
-    
+
     // License can be string or object with identifier/url
     if (typeof m.license === "string") {
         fields.license = m.license;

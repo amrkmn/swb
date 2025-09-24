@@ -36,7 +36,7 @@ export function escapeRegex(string: string): string {
  * Useful for adding delays in shell command sequences.
  */
 export function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Legacy alias for backward compatibility

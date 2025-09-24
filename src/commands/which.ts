@@ -31,7 +31,7 @@ export const definition: CommandDefinition = {
                 // Add PATH matches while keeping unique ordering
                 const m2 = findInPATH(name);
                 for (const p of m2) {
-                    if (!matches.some((q) => q.toLowerCase() === p.toLowerCase())) {
+                    if (!matches.some(q => q.toLowerCase() === p.toLowerCase())) {
                         matches.push(p);
                     }
                 }
@@ -44,10 +44,10 @@ export const definition: CommandDefinition = {
                     if (result) {
                         const lines = result
                             .split(/\r?\n/)
-                            .map((s) => s.trim())
+                            .map(s => s.trim())
                             .filter(Boolean);
                         for (const p of lines) {
-                            if (!matches.some((q) => q.toLowerCase() === p.toLowerCase())) {
+                            if (!matches.some(q => q.toLowerCase() === p.toLowerCase())) {
                                 matches.push(p);
                             }
                         }

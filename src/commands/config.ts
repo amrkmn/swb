@@ -49,7 +49,9 @@ async function saveConfig(config: ConfigObject): Promise<void> {
         await mkdir(configDir, { recursive: true });
         await writeFile(configPath, JSON.stringify(config, null, 2));
     } catch (error) {
-        throw new Error(`Failed to save config: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(
+            `Failed to save config: ${error instanceof Error ? error.message : String(error)}`
+        );
     }
 }
 

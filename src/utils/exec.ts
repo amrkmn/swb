@@ -68,7 +68,11 @@ export async function exec$(pieces: TemplateStringsArray, ...args: any[]): Promi
  * const result = await execWithOptions$({ cwd: '/tmp' })`dir`;
  * ```
  */
-export async function execWithOptions$(options: ExecOptions, pieces: TemplateStringsArray, ...args: any[]): Promise<ExecResult> {
+export async function execWithOptions$(
+    options: ExecOptions,
+    pieces: TemplateStringsArray,
+    ...args: any[]
+): Promise<ExecResult> {
     try {
         // Build the command using Bun's tagged template function
         let cmd = $(pieces, ...args);
@@ -102,7 +106,9 @@ export async function execWithOptions$(options: ExecOptions, pieces: TemplateStr
         };
 
         if (options.throwOnError) {
-            const error = new Error(`Command failed with exit code ${exitCode}: ${stderr || stdout}`);
+            const error = new Error(
+                `Command failed with exit code ${exitCode}: ${stderr || stdout}`
+            );
             (error as any).result = result;
             throw error;
         }

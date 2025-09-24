@@ -17,7 +17,7 @@ async function getVersion(): Promise<string> {
     if (typeof SWB_VERSION !== "undefined") {
         return SWB_VERSION;
     }
-    
+
     // Fallback to reading from package.json (development mode)
     try {
         const pkgPath = new URL("../../package.json", import.meta.url);
@@ -51,7 +51,9 @@ async function registerCommands(): Promise<void> {
             parser.registerCommand(definition);
             commandCache.set(name, definition);
         } catch (error) {
-            console.warn(`Warning: Failed to register command '${name}': ${error instanceof Error ? error.message : String(error)}`);
+            console.warn(
+                `Warning: Failed to register command '${name}': ${error instanceof Error ? error.message : String(error)}`
+            );
         }
     }
 }

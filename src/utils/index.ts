@@ -1,6 +1,6 @@
 /**
  * Shell utilities for Windows environments using Bun
- * 
+ *
  * This module provides a comprehensive set of utilities for executing shell commands,
  * working with the file system, and handling common shell operations on Windows.
  */
@@ -16,10 +16,7 @@ export {
 } from "./exec.ts";
 
 // Command utilities
-export {
-    commandExists,
-    whichCommand,
-} from "./commands.ts";
+export { commandExists, whichCommand } from "./commands.ts";
 
 // Helper utilities
 export {

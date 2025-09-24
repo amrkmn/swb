@@ -27,8 +27,8 @@ async function printInfo(foundManifest: FoundManifest, verbose: boolean): Promis
             typeof manifest.license === "string"
                 ? manifest.license
                 : typeof manifest.license === "object" && manifest.license.identifier
-                ? manifest.license.identifier
-                : JSON.stringify(manifest.license);
+                  ? manifest.license.identifier
+                  : JSON.stringify(manifest.license);
         console.log(`License: ${license}`);
     }
 
@@ -94,17 +94,19 @@ async function printInfo(foundManifest: FoundManifest, verbose: boolean): Promis
             typeof bin === "string"
                 ? bin.split(/[/\\]/).pop()
                 : Array.isArray(bin) && bin.length > 1
-                ? bin[1]
-                : Array.isArray(bin)
-                ? bin[0].split(/[/\\]/).pop()
-                : bin.toString()
+                  ? bin[1]
+                  : Array.isArray(bin)
+                    ? bin[0].split(/[/\\]/).pop()
+                    : bin.toString()
         );
         console.log(`Binaries: ${binNames.join(", ")}`);
     }
 
     // Environment modifications (official Scoop manifest properties)
     if (manifest.env_add_path) {
-        const paths = Array.isArray(manifest.env_add_path) ? manifest.env_add_path : [manifest.env_add_path];
+        const paths = Array.isArray(manifest.env_add_path)
+            ? manifest.env_add_path
+            : [manifest.env_add_path];
         console.log(`Adds to PATH: ${paths.join(", ")}`);
     }
 
@@ -130,7 +132,9 @@ async function printInfo(foundManifest: FoundManifest, verbose: boolean): Promis
 
     // Persistence (official Scoop manifest field)
     if (manifest.persist) {
-        const persistItems = Array.isArray(manifest.persist) ? manifest.persist : [manifest.persist];
+        const persistItems = Array.isArray(manifest.persist)
+            ? manifest.persist
+            : [manifest.persist];
         console.log(`Persisted data: ${persistItems.join(", ")}`);
     }
 
@@ -180,7 +184,9 @@ async function printInfo(foundManifest: FoundManifest, verbose: boolean): Promis
         const scriptFields = ["pre_install", "post_install", "pre_uninstall", "post_uninstall"];
         for (const field of scriptFields) {
             if (manifest[field]) {
-                const scripts = Array.isArray(manifest[field]) ? manifest[field] : [manifest[field]];
+                const scripts = Array.isArray(manifest[field])
+                    ? manifest[field]
+                    : [manifest[field]];
                 console.log(`${field.replace("_", " ")}: ${scripts.join("; ")}`);
             }
         }
@@ -239,12 +245,14 @@ export const definition: CommandDefinition = {
 
             if (results.length === 0) {
                 console.error(`Could not find '${appInput}' in installed apps or local buckets.`);
-                console.log(`\nTip: Try 'swb search ${appInput}' to find similar apps or check if buckets are up to date.`);
+                console.log(
+                    `\nTip: Try 'swb search ${appInput}' to find similar apps or check if buckets are up to date.`
+                );
                 return 1;
             }
 
             // Show the primary result (prefer installed if available)
-            const primary = results.find((r) => r.source === "installed") || results[0];
+            const primary = results.find(r => r.source === "installed") || results[0];
             await printInfo(primary, verbose);
 
             return 0;

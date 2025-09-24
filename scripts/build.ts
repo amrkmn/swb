@@ -12,7 +12,9 @@ const version = process.env.SWB_VERSION ?? "dev";
 
 // Update package.json version if SWB_VERSION is provided and different from current
 if (process.env.SWB_VERSION && process.env.SWB_VERSION !== packageJson.version) {
-    console.log(`Updating package.json version from ${packageJson.version} to ${process.env.SWB_VERSION}`);
+    console.log(
+        `Updating package.json version from ${packageJson.version} to ${process.env.SWB_VERSION}`
+    );
 
     // Update the version in the package object
     packageJson.version = process.env.SWB_VERSION;

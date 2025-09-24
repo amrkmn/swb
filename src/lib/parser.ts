@@ -219,7 +219,7 @@ export class ArgumentParser {
             "A JavaScript implementation of Scoop using Bun's runtime",
             "",
             "Options:",
-            ...this.globalOptions.map((opt) => `  ${opt.flags.padEnd(20)} ${opt.description}`),
+            ...this.globalOptions.map(opt => `  ${opt.flags.padEnd(20)} ${opt.description}`),
             "",
             "Commands:",
         ];
@@ -239,7 +239,7 @@ export class ArgumentParser {
 
         if (command.arguments?.length) {
             const argStr = command.arguments
-                .map((arg) => {
+                .map(arg => {
                     const name = arg.variadic ? `...${arg.name}` : arg.name;
                     return arg.required ? `<${name}>` : `[${name}]`;
                 })
