@@ -15,11 +15,6 @@ export {
     type ExecOptions,
 } from "./exec.ts";
 
-// File system operations
-export {
-    glob,
-} from "./filesystem.ts";
-
 // Command utilities
 export {
     commandExists,
