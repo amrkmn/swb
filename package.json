@@ -1,0 +1,41 @@
+{
+  "name": "swb",
+  "version": "0.1.0",
+  "description": "Scoop With Bun (swb): A JavaScript implementation of Scoop using Bun's runtime and $ shell.",
+  "license": "MIT",
+  "type": "module",
+  "module": "src/cli.ts",
+  "bin": {
+    "swb": "dist/cli.js"
+  },
+  "scripts": {
+    "dev": "bun run src/cli.ts",
+    "build": "bun run scripts/build.ts",
+    "test": "bun test"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "author": "amrkmn",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amrkmn/swb"
+  },
+  "keywords": [
+    "scoop",
+    "bun",
+    "cli",
+    "windows",
+    "package-manager"
+  ],
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^24.5.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "commander": "^14.0.1"
+  }
+}
