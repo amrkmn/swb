@@ -5,8 +5,8 @@
  *  - Global root: C:\ProgramData\scoop
  */
 
-import path from "node:path";
 import { existsSync } from "node:fs";
+import path from "node:path";
 
 export type InstallScope = "user" | "global";
 
@@ -35,7 +35,7 @@ export function getUserScoopRoot(): string {
 
 export function getGlobalScoopRoot(): string {
     // Default Scoop global root
-    return "C:\\\\ProgramData\\\\scoop";
+    return "C:\\ProgramData\\scoop";
 }
 
 export function resolveScoopPaths(scope: InstallScope): ScoopPaths {

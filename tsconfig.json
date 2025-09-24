@@ -1,13 +1,13 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "strict": true,
-    "noEmit": true,
-    "allowImportingTsExtensions": true,
-    "baseUrl": "."
-  },
-  "include": ["src/**/*.ts", "src/types/**/*.d.ts", "tests/**/*.ts"]
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ES2022"],
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "strict": true,
+        "noEmit": true,
+        "allowImportingTsExtensions": true,
+        "baseUrl": "."
+    },
+    "include": ["src/**/*.ts", "src/types/**/*.d.ts", "tests/**/*.ts"]
 }

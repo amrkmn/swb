@@ -10,8 +10,9 @@ import { definition as configCommand } from "../commands/config.ts";
 import { definition as infoCommand } from "../commands/info.ts";
 import { definition as listCommand } from "../commands/list.ts";
 import { definition as prefixCommand } from "../commands/prefix.ts";
-import { definition as whichCommand } from "../commands/which.ts";
 import { definition as searchCommand } from "../commands/search.ts";
+import { definition as statusCommand } from "../commands/status.ts";
+import { definition as whichCommand } from "../commands/which.ts";
 
 // Static command registry for easy access and bundling
 export const commandRegistry: Record<string, CommandDefinition> = {
@@ -20,6 +21,7 @@ export const commandRegistry: Record<string, CommandDefinition> = {
     list: listCommand,
     prefix: prefixCommand,
     search: searchCommand,
+    status: statusCommand,
     which: whichCommand,
 };
 
