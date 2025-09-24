@@ -1,5 +1,3 @@
-import { Command } from "commander";
-
 // Enhanced parsed arguments interface
 export interface ParsedArgs {
     command?: string;
@@ -46,13 +44,13 @@ function coerceValue(value: string): any {
     if (value === "false") return false;
     if (value === "null") return null;
     if (value === "undefined") return undefined;
-    
+
     // Try to parse as number
     const num = Number(value);
     if (!isNaN(num) && value.trim() !== "") {
         return num;
     }
-    
+
     return value;
 }
 
@@ -61,8 +59,8 @@ export class ArgumentParser {
     private globalOptions: OptionDefinition[] = [
         { flags: "-h, --help", description: "Show help information" },
         { flags: "-v, --version", description: "Show version number" },
+        { flags: "-g, --global", description: "Use global scope" },
         { flags: "--verbose", description: "Enable verbose output" },
-        { flags: "-g, --global", description: "Use global scope" }
     ];
 
     private commands: Map<string, CommandDefinition> = new Map();
@@ -81,8 +79,8 @@ export class ArgumentParser {
                 help: false,
                 version: false,
                 verbose: false,
-                global: false
-            }
+                global: false,
+            },
         };
 
         if (argv.length === 0) {
@@ -129,16 +127,16 @@ export class ArgumentParser {
     private parseFlags(argv: string[]): { flags: Record<string, any>; positionals: string[] } {
         const flags: Record<string, any> = {};
         const positionals: string[] = [];
-        
+
         for (let i = 0; i < argv.length; i++) {
             const arg = argv[i];
-            
+
             if (arg === "--") {
                 // Everything after -- is positional
                 positionals.push(...argv.slice(i + 1));
                 break;
             }
-            
+
             if (arg.startsWith("--")) {
                 // Long flag
                 const eqIndex = arg.indexOf("=");
@@ -181,7 +179,7 @@ export class ArgumentParser {
                 positionals.push(arg);
             }
         }
-        
+
         return { flags, positionals };
     }
 
@@ -221,9 +219,9 @@ export class ArgumentParser {
             "A JavaScript implementation of Scoop using Bun's runtime",
             "",
             "Options:",
-            ...this.globalOptions.map(opt => `  ${opt.flags.padEnd(20)} ${opt.description}`),
+            ...this.globalOptions.map((opt) => `  ${opt.flags.padEnd(20)} ${opt.description}`),
             "",
-            "Commands:"
+            "Commands:",
         ];
 
         for (const [name, cmd] of this.commands) {
@@ -238,10 +236,10 @@ export class ArgumentParser {
 
     private generateCommandHelp(command: CommandDefinition): string {
         const lines = [`Usage: swb ${command.name}`];
-        
+
         if (command.arguments?.length) {
             const argStr = command.arguments
-                .map(arg => {
+                .map((arg) => {
                     const name = arg.variadic ? `...${arg.name}` : arg.name;
                     return arg.required ? `<${name}>` : `[${name}]`;
                 })
