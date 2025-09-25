@@ -4,8 +4,8 @@
  * - <root>\apps\<name>\current is a junction/symlink to version folder (e.g., 2.44.0)
  */
 
+import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { existsSync, readdirSync, lstatSync, realpathSync } from "node:fs";
 import { bothScopes, resolveScoopPaths, type InstallScope } from "./paths.ts";
 
 export interface InstalledApp {
@@ -33,7 +33,41 @@ export function readCurrentTarget(appDir: string): {
     }
 }
 
+// Cache for installed apps to avoid repeated filesystem operations
+let installedAppsCache: { apps: InstalledApp[]; timestamp: number } | null = null;
+const CACHE_TTL_MS = 30000; // 30 seconds cache
+
+function getCachedInstalledApps(): InstalledApp[] | null {
+    if (!installedAppsCache) return null;
+
+    const now = Date.now();
+    if (now - installedAppsCache.timestamp > CACHE_TTL_MS) {
+        installedAppsCache = null;
+        return null;
+    }
+
+    return installedAppsCache.apps;
+}
+
+function setCachedInstalledApps(apps: InstalledApp[]): void {
+    installedAppsCache = {
+        apps: [...apps], // Create a copy to avoid mutations
+        timestamp: Date.now(),
+    };
+}
+
 export function listInstalledApps(filter?: string): InstalledApp[] {
+    // Check cache first
+    const cached = getCachedInstalledApps();
+    if (cached) {
+        // Apply filter if provided
+        if (typeof filter === "string" && filter.trim() !== "") {
+            const normFilter = filter.toLowerCase();
+            return cached.filter(app => app.name.toLowerCase().includes(normFilter));
+        }
+        return cached;
+    }
+
     const results: InstalledApp[] = [];
     const scopes = bothScopes();
 
@@ -76,6 +110,11 @@ export function listInstalledApps(filter?: string): InstalledApp[] {
         if (a.scope === b.scope) return 0;
         return a.scope === "user" ? -1 : 1;
     });
+
+    // Cache the full results (without filter applied)
+    if (!filter) {
+        setCachedInstalledApps(results);
+    }
 
     return results;
 }

@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
+import { error, log } from "../utils/logger.ts";
 
 // Types
 interface ConfigObject {
@@ -57,17 +58,17 @@ async function saveConfig(config: ConfigObject): Promise<void> {
 
 function printAll(config: ConfigObject): void {
     if (Object.keys(config).length === 0) {
-        console.log("No configuration values set.");
+        log("No configuration values set.");
         return;
     }
 
     for (const [key, value] of Object.entries(config)) {
-        console.log(`${key}: ${value}`);
+        log(`${key}: ${value}`);
     }
 }
 
 function printValue(value: any): void {
-    console.log(JSON.stringify(value));
+    log(JSON.stringify(value));
 }
 
 // New style command definition
@@ -101,16 +102,16 @@ export const definition: CommandDefinition = {
             if (name === "rm") {
                 const key = value;
                 if (!key) {
-                    console.error("Missing key to remove");
+                    error("Missing key to remove");
                     return 1;
                 }
                 if (!(key in cfg)) {
-                    console.log(`'${key}' is not set`);
+                    log(`'${key}' is not set`);
                     return 1;
                 }
                 delete (cfg as any)[key];
                 await saveConfig(cfg);
-                console.log(`'${key}' has been removed`);
+                log(`'${key}' has been removed`);
                 return 0;
             }
 
@@ -118,7 +119,7 @@ export const definition: CommandDefinition = {
             if (name && value == null) {
                 const key = name;
                 if (!(key in cfg)) {
-                    console.log(`'${key}' is not set`);
+                    log(`'${key}' is not set`);
                     return 1;
                 }
                 printValue((cfg as any)[key]);
@@ -131,14 +132,14 @@ export const definition: CommandDefinition = {
                 const coerced = coerceValue(String(value));
                 (cfg as any)[key] = coerced;
                 await saveConfig(cfg);
-                console.log(`'${key}' has been set to '${String(coerced)}'`);
+                log(`'${key}' has been set to '${String(coerced)}'`);
                 return 0;
             }
 
-            console.error("Invalid usage for config");
+            error("Invalid usage for config");
             return 1;
         } catch (err) {
-            console.error(String(err instanceof Error ? err.message : err));
+            error(String(err instanceof Error ? err.message : err));
             return 1;
         }
     },

@@ -25,10 +25,10 @@ export interface FoundManifest {
 export interface InfoFields {
     name: string;
     // Required properties
-    version?: string;
-    description?: string;
-    homepage?: string;
-    license?: string | { identifier: string; url?: string };
+    version: string;
+    description: string;
+    homepage: string;
+    license: string | { identifier: string; url?: string };
     // Optional metadata
     source?: string; // bucket name or URL
     deprecated?: boolean;
@@ -234,6 +234,10 @@ export function readManifestFields(app: string, fm: FoundManifest): InfoFields {
     const m = fm.manifest || {};
     const fields: InfoFields = {
         name: app,
+        version: m.version,
+        description: m.description,
+        homepage: m.homepage,
+        license: m.license,
     };
 
     // Required properties according to Scoop manifest schema

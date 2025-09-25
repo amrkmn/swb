@@ -37,4 +37,4 @@ Bun.build({
     },
 });
 
-console.log(`✅ Build complete: dist/swb.exe (v${version})`);
+console.log(`Build complete: dist/swb.exe (v${version})`);

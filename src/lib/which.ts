@@ -5,9 +5,9 @@
  * - Handle Windows executable extensions (PATHEXT) and case-insensitive FS
  */
 
-import path from "node:path";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { bothScopes, resolveScoopPaths } from "./paths.ts";
+import path from "node:path";
+import { bothScopes } from "./paths.ts";
 
 function getPathExts(): string[] {
     try {

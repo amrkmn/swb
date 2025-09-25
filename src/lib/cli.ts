@@ -1,8 +1,11 @@
 import { readFile } from "fs/promises";
-import { parser, type CommandDefinition } from "./parser.ts";
 import { commandRegistry, getCommandDefinition } from "./commands.ts";
+import { parser, type CommandDefinition } from "./parser.ts";
 
 // Global variable injected during build
+import { success } from "../utils/colors.ts";
+import { error, log, warn } from "../utils/logger.ts";
+
 declare const SWB_VERSION: string;
 
 // Cache for loaded commands to improve performance
@@ -51,8 +54,8 @@ async function registerCommands(): Promise<void> {
             parser.registerCommand(definition);
             commandCache.set(name, definition);
         } catch (error) {
-            console.warn(
-                `Warning: Failed to register command '${name}': ${error instanceof Error ? error.message : String(error)}`
+            warn(
+                `Failed to register command '${name}': ${error instanceof Error ? error.message : String(error)}`
             );
         }
     }
@@ -69,51 +72,51 @@ export async function runCLI(argv: string[]): Promise<number> {
 
         // Handle global flags
         if (parsed.global.help && !parsed.command) {
-            console.log(parser.generateHelp());
+            log(parser.generateHelp());
             return 0;
         }
 
         if (parsed.global.version) {
             const version = await getVersion();
-            console.log(version);
+            log(success(version));
             return 0;
         }
 
         // Handle command execution
         if (parsed.command) {
             if (parsed.global.help) {
-                console.log(parser.generateHelp(parsed.command));
+                log(parser.generateHelp(parsed.command));
                 return 0;
             }
 
             try {
                 return await parser.executeCommand(parsed.command, parsed);
-            } catch (error) {
-                console.error(error instanceof Error ? error.message : String(error));
-                console.log(parser.generateHelp(parsed.command));
+            } catch (err) {
+                error(err instanceof Error ? err.message : String(err));
+                log(parser.generateHelp(parsed.command));
                 return 1;
             }
         }
 
         // No command provided
         if (argv.length === 0) {
-            console.log(parser.generateHelp());
+            log(parser.generateHelp());
             return 0;
         }
 
         // Unknown command
-        console.error(`Unknown command: ${argv[0]}`);
-        console.log(parser.generateHelp());
+        error(`Unknown command: ${argv[0]}`);
+        log(parser.generateHelp());
         return 1;
-    } catch (error) {
-        console.error(`CLI Error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (err) {
+        error(`CLI Error: ${err instanceof Error ? err.message : String(err)}`);
         return 1;
     }
 }
 
 // Print help for a specific command or general help
 export function printHelp(commandName?: string): void {
-    console.log(parser.generateHelp(commandName));
+    log(parser.generateHelp(commandName));
 }
 
 // Get list of available commands

@@ -1,10 +1,13 @@
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { listInstalledApps } from "../lib/apps.ts";
 import { findAllBucketsInScope } from "../lib/manifests.ts";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
 
 // Search result interface
+import { error, log, warn } from "src/utils/logger.ts";
+import { blue, bold, cyan, dim, green, yellow } from "../utils/colors.ts";
+
 interface SearchResult {
     name: string;
     version?: string;
@@ -70,6 +73,10 @@ function searchBuckets(
     const scopes: ("user" | "global")[] = ["user", "global"];
     const seenPackages = new Set<string>(); // Avoid duplicates across scopes
 
+    // Early termination for exact matches - if we find exact matches quickly, we can stop
+    const exactMatches = new Set<string>();
+    const isSimpleQuery = query.length > 1 && !/[.*+?^${}()|[\]\\]/.test(query);
+
     for (const scope of scopes) {
         const buckets = findAllBucketsInScope(scope);
 
@@ -87,6 +94,17 @@ function searchBuckets(
                     .filter(f => f.isFile() && f.name.endsWith(".json"))
                     .map(f => f.name.slice(0, -5)); // Remove .json extension more efficiently
 
+                // Sort files to prioritize exact matches first
+                if (isSimpleQuery) {
+                    files.sort((a, b) => {
+                        const aExact = a.toLowerCase() === query.toLowerCase();
+                        const bExact = b.toLowerCase() === query.toLowerCase();
+                        if (aExact && !bExact) return -1;
+                        if (!aExact && bExact) return 1;
+                        return 0;
+                    });
+                }
+
                 for (const appName of files) {
                     const packageKey = `${bucketInfo.name}:${appName}`;
 
@@ -103,6 +121,11 @@ function searchBuckets(
                     // Quick name check first - if it matches, we're done for this package
                     if (pattern.test(appName)) {
                         seenPackages.add(packageKey);
+
+                        // Mark as exact match for potential early termination
+                        if (isSimpleQuery && appName.toLowerCase() === query.toLowerCase()) {
+                            exactMatches.add(appName.toLowerCase());
+                        }
 
                         // Only read manifest if we need metadata (for verbose output)
                         let manifest: any = {};
@@ -123,20 +146,24 @@ function searchBuckets(
                             binaries: undefined,
                             isInstalled,
                         });
+
+                        // Early termination: if we found exact matches and have reasonable results, stop searching
+                        if (exactMatches.size > 0 && results.length >= 10) {
+                            return results;
+                        }
+
                         continue; // Skip binary search for this package
                     }
 
-                    // Name doesn't match - check binaries only if necessary
-                    // Skip binary search entirely if it's a simple exact match query
-                    if (
-                        query.length > 2 &&
-                        !query.includes(".") &&
-                        !query.includes("*") &&
-                        !query.includes("?")
-                    ) {
-                        // For simple queries, try a quick check first
+                    // Name doesn't match - check binaries only for simple queries
+                    if (isSimpleQuery && query.length > 2) {
                         try {
                             const manifestPath = join(bucketInfo.bucketDir, `${appName}.json`);
+
+                            // Quick file size check - skip very large manifests for performance
+                            const stats = statSync(manifestPath);
+                            if (stats.size > 50000) continue; // Skip files larger than 50KB
+
                             const manifestContent = readFileSync(manifestPath, "utf8");
 
                             // Quick check if the query appears anywhere in the manifest
@@ -161,6 +188,11 @@ function searchBuckets(
                             // Continue on error
                         }
                     }
+
+                    // Limit results to prevent excessive processing
+                    if (results.length >= 100) {
+                        return results;
+                    }
                 }
             } catch (error) {
                 // Skip bucket on error and continue
@@ -175,7 +207,7 @@ function searchBuckets(
 // Format search results for display
 function formatResults(results: SearchResult[], verbose: boolean): void {
     if (results.length === 0) {
-        console.log("No packages found.");
+        warn("No packages found.");
         return;
     }
 
@@ -193,7 +225,7 @@ function formatResults(results: SearchResult[], verbose: boolean): void {
 
     for (let i = 0; i < sortedBuckets.length; i++) {
         const [bucketName, bucketResults] = sortedBuckets[i];
-        console.log(`${i === 0 ? "" : "\n"}'${bucketName}' bucket:`);
+        log(`${i === 0 ? "" : "\n"}${yellow(`'${bucketName}' bucket:`)}`);
 
         // Sort results within bucket (installed first, then alphabetical)
         bucketResults.sort((a, b) => {
@@ -204,93 +236,87 @@ function formatResults(results: SearchResult[], verbose: boolean): void {
         });
 
         for (const result of bucketResults) {
-            let line = `    ${result.name}`;
+            let line = `    ${bold(cyan(result.name))}`;
 
             if (result.version) {
-                line += ` (${result.version})`;
+                line += ` ${dim(`(${green(result.version)})`)}`;
             }
 
             if (result.isInstalled) {
-                line += " [installed]";
+                line += ` ${green("[installed]")}`;
             }
 
-            console.log(line);
+            log(line);
 
             if (verbose && result.description) {
-                console.log(`        ${result.description}`);
+                log(`        ${dim(result.description)}`);
             }
 
             if (result.binaries && result.binaries.length > 0) {
-                console.log(`        --> includes '${result.binaries.join("', '")}'`);
+                const binariesText = result.binaries.map(bin => green(bin)).join("', '");
+                log(`        ${dim("-->")} includes '${binariesText}'`);
             }
         }
     }
 
-    console.log(`\nFound ${results.length} package(s).`);
+    log(`\n${blue(`Found ${results.length} package(s).`)}`);
 }
 
 // New style command definition
 export const definition: CommandDefinition = {
     name: "search",
-    description: "Search for packages in available buckets",
-    arguments: [
-        {
-            name: "query",
-            description: "Search pattern (supports regular expressions)",
-            required: true,
-        },
-    ],
+    description: "Search for packages in Scoop buckets",
     options: [
         {
-            flags: "-b, --bucket <bucket>",
-            description: "Search in a specific bucket only",
+            flags: "-b, --bucket",
+            description: "Search in specific bucket only",
         },
         {
-            flags: "-i, --installed",
-            description: "Search only installed packages",
+            flags: "-i, --installed-only",
+            description: "Show only installed packages",
         },
         {
-            flags: "-s, --case-sensitive",
-            description: "Case-sensitive search",
+            flags: "-c, --case-sensitive",
+            description: "Use case-sensitive matching",
         },
         {
-            flags: "--verbose",
-            description: "Show detailed information",
+            flags: "-v, --verbose",
+            description: "Show detailed package information",
         },
     ],
     handler: async (args: ParsedArgs): Promise<number> => {
+        const startTime = performance.now();
+
+        const query = args.args[0];
+        if (!query) {
+            error("Usage: swb search <query>");
+            return 1;
+        }
+
+        const options = {
+            caseSensitive: Boolean(args.flags["case-sensitive"] || args.flags.c),
+            bucket: (args.flags["bucket"] as string) || (args.flags.b as string),
+            installedOnly: Boolean(args.flags["installed-only"] || args.flags.i),
+        };
+
+        const verbose = Boolean(args.flags["verbose"] || args.flags.v);
+
         try {
-            const query = args.args[0];
-            if (!query) {
-                console.error("Search query is required");
-                return 1;
-            }
-
-            const bucket = args.flags.bucket || args.flags.b;
-            const installedOnly = Boolean(args.flags.installed || args.flags.i);
-            const caseSensitive = Boolean(args.flags["case-sensitive"] || args.flags.s);
-            const verbose = Boolean(args.flags.verbose || args.global.verbose);
-
-            // Validate regex pattern
-            try {
-                new RegExp(query, caseSensitive ? "" : "i");
-            } catch (error) {
-                console.error(
-                    `Invalid regular expression: ${error instanceof Error ? error.message : String(error)}`
-                );
-                return 1;
-            }
-
-            const results = searchBuckets(query, {
-                bucket: typeof bucket === "string" ? bucket : undefined,
-                installedOnly,
-                caseSensitive,
-            });
+            const results = searchBuckets(query, options);
+            const searchTime = performance.now() - startTime;
 
             formatResults(results, verbose);
+
+            // Performance logging for debugging cold start issues
+            if (searchTime > 5000) {
+                warn(
+                    `Search took ${(searchTime / 1000).toFixed(2)}s - consider optimizing bucket structure`
+                );
+            }
+
             return 0;
-        } catch (error) {
-            console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (err) {
+            error(`Search failed: ${err instanceof Error ? err.message : "Unknown error"}`);
             return 1;
         }
     },

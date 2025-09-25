@@ -1,6 +1,7 @@
+import { resolveAppPrefix } from "../lib/apps.ts";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
 import type { InstallScope } from "../lib/paths.ts";
-import { resolveAppPrefix } from "../lib/apps.ts";
+import { error, log } from "../utils/logger.ts";
 
 // New style command definition
 export const definition: CommandDefinition = {
@@ -23,7 +24,7 @@ export const definition: CommandDefinition = {
         try {
             const app = args.args[0];
             if (!app) {
-                console.error("App name is required");
+                error("App name is required");
                 return 1;
             }
 
@@ -39,14 +40,14 @@ export const definition: CommandDefinition = {
             }
 
             if (!prefix) {
-                console.error(`'${app}' is not installed or has no current version`);
+                error(`'${app}' is not installed or has no current version`);
                 return 1;
             }
 
-            console.log(prefix);
+            log(prefix);
             return 0;
-        } catch (error) {
-            console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (err) {
+            error(`Error: ${err instanceof Error ? err.message : String(err)}`);
             return 1;
         }
     },

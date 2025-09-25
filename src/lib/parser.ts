@@ -1,3 +1,5 @@
+import { error } from "../utils/logger.ts";
+
 // Enhanced parsed arguments interface
 export interface ParsedArgs {
     command?: string;
@@ -193,8 +195,8 @@ export class ArgumentParser {
         try {
             const result = await command.handler(args);
             return typeof result === "number" ? result : 0;
-        } catch (error) {
-            console.error(error instanceof Error ? error.message : String(error));
+        } catch (err) {
+            error(err instanceof Error ? err.message : String(err));
             return 1;
         }
     }

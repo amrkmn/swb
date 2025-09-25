@@ -1,9 +1,11 @@
 import { listInstalledApps } from "../lib/apps.ts";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
+import { cyan, dim, green, warning } from "../utils/colors.ts";
+import { error, log } from "../utils/logger.ts";
 
 function formatRow(name: string, version: string, flags: string[]): string {
-    const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
-    return `${name} ${version}${flagStr}`;
+    const flagStr = flags.length > 0 ? ` ${dim(`[${flags.join(", ")}]`)}` : "";
+    return `${cyan(name)} ${green(version)}${flagStr}`;
 }
 
 // New style command definition
@@ -23,19 +25,19 @@ export const definition: CommandDefinition = {
             const apps = listInstalledApps(query ?? undefined);
 
             if (apps.length === 0) {
-                console.log("There aren't any apps installed.");
+                log(warning("There aren't any apps installed."));
                 return 1;
             }
 
             for (const a of apps) {
                 const flags: string[] = [];
                 if (a.scope === "global") flags.push("global");
-                console.log(formatRow(a.name, a.version || "unknown", flags));
+                log(formatRow(a.name, a.version || "unknown", flags));
             }
 
             return 0;
-        } catch (error) {
-            console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (err) {
+            error(`Error: ${err instanceof Error ? err.message : String(err)}`);
             return 1;
         }
     },

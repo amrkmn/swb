@@ -1,6 +1,7 @@
 import { whichCommand } from "src/utils/commands.ts";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
 import { findInPATH, findInShims } from "../lib/which.ts";
+import { error, log } from "../utils/logger.ts";
 
 // New style command definition
 export const definition: CommandDefinition = {
@@ -17,7 +18,7 @@ export const definition: CommandDefinition = {
         try {
             const name = args.args[0];
             if (!name) {
-                console.error("Executable name is required");
+                error("Executable name is required");
                 return 1;
             }
 
@@ -58,23 +59,23 @@ export const definition: CommandDefinition = {
             }
 
             if (matches.length === 0) {
-                console.error(`'${name}' was not found`);
+                error(`'${name}' was not found`);
                 return 1;
             }
 
             // Print primary match
-            console.log(matches[0]);
+            log(matches[0]);
 
             // Print alternates if any (Scoop shows others in PATH)
             if (matches.length > 1) {
                 for (let i = 1; i < matches.length; i++) {
-                    console.log(matches[i]);
+                    log(matches[i]);
                 }
             }
 
             return 0;
-        } catch (error) {
-            console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (err) {
+            error(`Error: ${err instanceof Error ? err.message : String(err)}`);
             return 1;
         }
     },

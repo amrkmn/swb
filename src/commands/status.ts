@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
+import { error, log, newline, success, warn } from "src/utils/logger.ts";
 import { listInstalledApps, type InstalledApp } from "../lib/apps.ts";
 import { findAllBucketsInScope, findAllManifests, readManifestFields } from "../lib/manifests.ts";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
@@ -197,8 +198,8 @@ async function checkInternalStatus(local: boolean): Promise<{
 
         // For Scoop itself, we'll assume it's up to date since checking would require external commands
         scoopOutdated = false;
-    } catch (error) {
-        console.error("Warning: Could not check bucket status:", error);
+    } catch (e) {
+        error("Could not check bucket status:", e);
     }
 
     return { scoopOutdated, bucketsOutdated };
@@ -273,8 +274,8 @@ async function checkScoopStatus(local: boolean): Promise<{
 }> {
     try {
         return await checkInternalStatus(local);
-    } catch (error) {
-        console.error("Warning: Could not check status:", error);
+    } catch (e) {
+        error("Warning: Could not check status:", e);
         return {
             scoopOutdated: false,
             bucketsOutdated: false,
@@ -283,6 +284,7 @@ async function checkScoopStatus(local: boolean): Promise<{
 }
 
 // Format and display status results
+
 function displayStatus(
     statuses: AppStatus[],
     scoopStatus: { scoopOutdated: boolean; bucketsOutdated: boolean }
@@ -291,19 +293,22 @@ function displayStatus(
 
     // Display Scoop status first
     if (scoopOutdated) {
-        console.log("WARN  Scoop is out of date. Run 'scoop update' to get the latest version.");
+        warn("Scoop is out of date. Run 'scoop update' to get the latest version.");
+    }
+
+    // If Scoop is not outdated, show Scoop status
+    if (!scoopOutdated) {
+        success("Scoop is up to date.");
     }
 
     // Display bucket status
     if (bucketsOutdated) {
-        console.log(
-            "WARN  Some buckets are out of date. Run 'scoop update' to get the latest changes."
-        );
+        warn("Bucket(s) are out of date. Run 'scoop update' to get the latest changes.");
     }
 
-    // If neither Scoop nor buckets are outdated, show positive message
-    if (!scoopOutdated && !bucketsOutdated) {
-        console.log("Scoop is up to date.");
+    // Show bucket status when not outdated
+    if (!bucketsOutdated) {
+        success("All buckets are up to date.");
     }
 
     // Filter for apps that have updates or issues (excluding held packages unless they have other issues)
@@ -320,12 +325,12 @@ function displayStatus(
     if (appsWithIssues.length === 0) {
         // Check if everything is truly ok
         if (!scoopOutdated && !bucketsOutdated) {
-            console.log("Everything is ok!");
+            success("Everything is ok!");
         }
         return;
     }
 
-    console.log(""); // Empty line before table
+    newline(); // Empty line before table
 
     // Calculate column widths - match Scoop's fixed widths
     const nameWidth = 22;
@@ -341,8 +346,8 @@ function displayStatus(
         "Missing Dependencies".padEnd(missingDepsWidth) +
         "Info";
 
-    console.log(header);
-    console.log("-".repeat(Math.min(header.length, 100))); // Limit separator length
+    log(header);
+    log("-".repeat(Math.min(header.length, 100))); // Limit separator length
 
     // Display each app with issues
     for (const status of appsWithIssues) {
@@ -372,7 +377,7 @@ function displayStatus(
 
         const info = status.info.join(", ");
 
-        console.log(name + installed + latest + depsFormatted + info);
+        log(name + installed + latest + depsFormatted + info);
     }
 }
 
@@ -415,7 +420,7 @@ function displayStatusJson(
         })),
     };
 
-    console.log(JSON.stringify(jsonOutput, null, 2));
+    log(JSON.stringify(jsonOutput, null, 2));
 }
 
 // New style command definition
@@ -438,7 +443,7 @@ export const definition: CommandDefinition = {
             const json = Boolean(args.flags.json || args.flags.j);
 
             if (!local && !json) {
-                console.log("Checking for updates...");
+                log("Checking for updates...");
             }
 
             // Get all installed apps
@@ -446,7 +451,7 @@ export const definition: CommandDefinition = {
 
             if (installedApps.length === 0) {
                 if (json) {
-                    console.log(
+                    log(
                         JSON.stringify(
                             {
                                 scoop: { outdated: false },
@@ -458,7 +463,7 @@ export const definition: CommandDefinition = {
                         )
                     );
                 } else {
-                    console.log("No packages installed.");
+                    warn("No packages installed.");
                 }
                 return 0;
             }
@@ -484,8 +489,8 @@ export const definition: CommandDefinition = {
             }
 
             return 0;
-        } catch (error) {
-            console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+        } catch (e) {
+            error(e instanceof Error ? e.message : String(e));
             return 1;
         }
     },
