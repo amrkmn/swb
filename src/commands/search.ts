@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
-import { join } from "path";
+import { join, basename } from "path";
 import { listInstalledApps } from "../lib/apps.ts";
 import { findAllBucketsInScope } from "../lib/manifests.ts";
 import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
@@ -54,17 +54,23 @@ function searchInBinaries(manifestContent: string, pattern: RegExp): string[] {
 }
 
 // Optimized search through all available manifests in buckets
-function searchBuckets(
+async function searchBuckets(
     query: string,
     options: {
         caseSensitive?: boolean;
         bucket?: string;
         installedOnly?: boolean;
     }
-): SearchResult[] {
+): Promise<SearchResult[]> {
     const results: SearchResult[] = [];
     const flags = options.caseSensitive ? "" : "i";
     const pattern = new RegExp(query, flags);
+
+    // Start cache preloading in background if not already started
+    if (!preloadStarted) {
+        preloadStarted = true;
+        startBucketCachePreloading(); // Don't await - let it run in background
+    }
 
     // Get list of installed apps for checking installation status - cache this
     const installedApps = listInstalledApps();
@@ -89,14 +95,34 @@ function searchBuckets(
             try {
                 if (!existsSync(bucketInfo.bucketDir)) continue;
 
-                // Get all JSON files at once using withFileTypes for better performance
-                const files = readdirSync(bucketInfo.bucketDir, { withFileTypes: true })
-                    .filter(f => f.isFile() && f.name.endsWith(".json"))
-                    .map(f => f.name.slice(0, -5)); // Remove .json extension more efficiently
+                // Try to get cached contents first
+                let bucketContents = getCachedBucketContents(bucketInfo.bucketDir);
+                
+                // If not cached, check if preloading is in progress and wait briefly
+                if (!bucketContents && cachePreloadingPromise) {
+                    try {
+                        // Wait up to 100ms for preloading to complete this bucket
+                        await Promise.race([
+                            cachePreloadingPromise,
+                            new Promise(resolve => setTimeout(resolve, 100))
+                        ]);
+                        bucketContents = getCachedBucketContents(bucketInfo.bucketDir);
+                    } catch {
+                        // Continue if preloading fails
+                    }
+                }
+                
+                // If still not cached, build cache synchronously with progress
+                if (!bucketContents) {
+                    bucketContents = buildBucketCacheOptimized(bucketInfo.bucketDir, true);
+                }
+                
+                if (!bucketContents) continue;
 
-                // Sort files to prioritize exact matches first
+                // Sort packages to prioritize exact matches first
+                const packages = Object.keys(bucketContents);
                 if (isSimpleQuery) {
-                    files.sort((a, b) => {
+                    packages.sort((a, b) => {
                         const aExact = a.toLowerCase() === query.toLowerCase();
                         const bExact = b.toLowerCase() === query.toLowerCase();
                         if (aExact && !bExact) return -1;
@@ -105,7 +131,7 @@ function searchBuckets(
                     });
                 }
 
-                for (const appName of files) {
+                for (const appName of packages) {
                     const packageKey = `${bucketInfo.name}:${appName}`;
 
                     // Skip duplicates across scopes
@@ -118,6 +144,8 @@ function searchBuckets(
                         continue;
                     }
 
+                    const packageData = bucketContents[appName];
+                    
                     // Quick name check first - if it matches, we're done for this package
                     if (pattern.test(appName)) {
                         seenPackages.add(packageKey);
@@ -127,28 +155,18 @@ function searchBuckets(
                             exactMatches.add(appName.toLowerCase());
                         }
 
-                        // Only read manifest if we need metadata (for verbose output)
-                        let manifest: any = {};
-                        try {
-                            const manifestPath = join(bucketInfo.bucketDir, `${appName}.json`);
-                            const manifestContent = readFileSync(manifestPath, "utf8");
-                            manifest = JSON.parse(manifestContent);
-                        } catch {
-                            // Continue with name match even if manifest can't be read
-                        }
-
                         results.push({
                             name: appName,
-                            version: manifest.version,
+                            version: packageData.version,
                             bucket: bucketInfo.name,
                             scope,
-                            description: manifest.description,
+                            description: packageData.description,
                             binaries: undefined,
                             isInstalled,
                         });
 
                         // Early termination: if we found exact matches and have reasonable results, stop searching
-                        if (exactMatches.size > 0 && results.length >= 10) {
+                        if (false) { // Disabled aggressive early termination
                             return results;
                         }
 
@@ -156,36 +174,20 @@ function searchBuckets(
                     }
 
                     // Name doesn't match - check binaries only for simple queries
-                    if (isSimpleQuery && query.length > 2) {
-                        try {
-                            const manifestPath = join(bucketInfo.bucketDir, `${appName}.json`);
-
-                            // Quick file size check - skip very large manifests for performance
-                            const stats = statSync(manifestPath);
-                            if (stats.size > 50000) continue; // Skip files larger than 50KB
-
-                            const manifestContent = readFileSync(manifestPath, "utf8");
-
-                            // Quick check if the query appears anywhere in the manifest
-                            if (manifestContent.toLowerCase().includes(query.toLowerCase())) {
-                                const binaryMatches = searchInBinaries(manifestContent, pattern);
-
-                                if (binaryMatches.length > 0) {
-                                    const manifest = JSON.parse(manifestContent);
-                                    seenPackages.add(packageKey);
-                                    results.push({
-                                        name: appName,
-                                        version: manifest.version,
-                                        bucket: bucketInfo.name,
-                                        scope,
-                                        description: manifest.description,
-                                        binaries: binaryMatches,
-                                        isInstalled,
-                                    });
-                                }
-                            }
-                        } catch {
-                            // Continue on error
+                    if (isSimpleQuery && query.length > 2 && packageData.binaries) {
+                        const binaryMatches = packageData.binaries.filter(binary => pattern.test(binary));
+                        
+                        if (binaryMatches.length > 0) {
+                            seenPackages.add(packageKey);
+                            results.push({
+                                name: appName,
+                                version: packageData.version,
+                                bucket: bucketInfo.name,
+                                scope,
+                                description: packageData.description,
+                                binaries: binaryMatches,
+                                isInstalled,
+                            });
                         }
                     }
 
@@ -263,6 +265,212 @@ function formatResults(results: SearchResult[], verbose: boolean): void {
 }
 
 // New style command definition
+// Bucket contents cache system for dramatically improved performance
+interface CachedPackageData {
+    version?: string;
+    description?: string;
+    binaries?: string[];
+}
+
+interface BucketCache {
+    contents: Record<string, CachedPackageData>;
+    timestamp: number;
+    bucketPath: string;
+}
+
+const bucketCaches = new Map<string, BucketCache>();
+const BUCKET_CACHE_TTL_MS = 300000; // 5 minutes cache for bucket contents
+
+function getCachedBucketContents(bucketDir: string): Record<string, CachedPackageData> | null {
+    const cached = bucketCaches.get(bucketDir);
+    if (!cached) return null;
+
+    const now = Date.now();
+    if (now - cached.timestamp > BUCKET_CACHE_TTL_MS) {
+        bucketCaches.delete(bucketDir);
+        return null;
+    }
+
+    return cached.contents;
+}
+
+function buildBucketCache(bucketDir: string): Record<string, CachedPackageData> | null {
+    return buildBucketCacheOptimized(bucketDir, false);
+}
+
+// Function to clear stale caches
+function clearStaleBucketCaches(): void {
+    const now = Date.now();
+    for (const [bucketDir, cache] of bucketCaches.entries()) {
+        if (now - cache.timestamp > BUCKET_CACHE_TTL_MS) {
+            bucketCaches.delete(bucketDir);
+        }
+    }
+}
+
+// Background cache preloader to eliminate first-search delay
+let cachePreloadingPromise: Promise<void> | null = null;
+let preloadStarted = false;
+
+function startBucketCachePreloading(): Promise<void> {
+    if (cachePreloadingPromise) return cachePreloadingPromise;
+    
+    cachePreloadingPromise = (async () => {
+        try {
+            const scopes: ("user" | "global")[] = ["user", "global"];
+            const bucketsToCache: { name: string; bucketDir: string }[] = [];
+            
+            // Collect all buckets first
+            for (const scope of scopes) {
+                const buckets = findAllBucketsInScope(scope);
+                bucketsToCache.push(...buckets);
+            }
+            
+            // Process buckets in parallel batches to avoid overwhelming the system
+            const BATCH_SIZE = 3; // Process 3 buckets at once
+            for (let i = 0; i < bucketsToCache.length; i += BATCH_SIZE) {
+                const batch = bucketsToCache.slice(i, i + BATCH_SIZE);
+                
+                const batchPromises = batch.map(async (bucketInfo) => {
+                    try {
+                        if (!existsSync(bucketInfo.bucketDir)) return;
+                        
+                        // Only build cache if not already cached
+                        const cached = getCachedBucketContents(bucketInfo.bucketDir);
+                        if (!cached) {
+                            await new Promise(resolve => {
+                                // Use setImmediate to yield control to the event loop
+                                setImmediate(() => {
+                                    buildBucketCache(bucketInfo.bucketDir);
+                                    resolve(void 0);
+                                });
+                            });
+                        }
+                    } catch {
+                        // Skip failed buckets
+                    }
+                });
+                
+                await Promise.all(batchPromises);
+                
+                // Small delay between batches to prevent blocking
+                if (i + BATCH_SIZE < bucketsToCache.length) {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            }
+        } catch {
+            // Fail silently - cache preloading is a performance optimization
+        }
+    })();
+    
+    return cachePreloadingPromise;
+}
+
+// Optimized cache building with progress feedback
+function buildBucketCacheOptimized(bucketDir: string, showProgress = false): Record<string, CachedPackageData> | null {
+    try {
+        if (!existsSync(bucketDir)) return null;
+
+        const contents: Record<string, CachedPackageData> = {};
+        
+        // Get all JSON files efficiently
+        const files = readdirSync(bucketDir, { withFileTypes: true })
+            .filter(f => f.isFile() && f.name.endsWith(".json"))
+            .map(f => f.name.slice(0, -5)); // Remove .json extension
+
+        const totalFiles = files.length;
+        let processedFiles = 0;
+        
+        if (showProgress && totalFiles > 100) {
+            console.log(`Building cache for ${basename(bucketDir)} bucket (${totalFiles} packages)...`);
+        }
+
+        // Process files in small batches to avoid blocking the event loop
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < files.length; i += BATCH_SIZE) {
+            const batch = files.slice(i, i + BATCH_SIZE);
+            
+            for (const appName of batch) {
+                try {
+                    const manifestPath = join(bucketDir, `${appName}.json`);
+                    
+                    // Quick file size check - skip very large manifests
+                    const stats = statSync(manifestPath);
+                    if (stats.size > 100000) continue; // Skip files larger than 100KB
+
+                    const manifestContent = readFileSync(manifestPath, "utf8");
+                    const manifest = JSON.parse(manifestContent);
+
+                    // Extract and cache only essential search data
+                    const packageData: CachedPackageData = {
+                        version: manifest.version,
+                        description: manifest.description
+                    };
+
+                    // Extract binary names for binary search optimization
+                    if (manifest.bin) {
+                        if (Array.isArray(manifest.bin)) {
+                            packageData.binaries = manifest.bin;
+                        } else if (typeof manifest.bin === 'object') {
+                            packageData.binaries = Object.keys(manifest.bin);
+                        } else if (typeof manifest.bin === 'string') {
+                            packageData.binaries = [manifest.bin];
+                        }
+                    }
+
+                    // Also check shortcuts for additional binaries
+                    if (manifest.shortcuts) {
+                        const shortcutBinaries = manifest.shortcuts
+                            .map((s: any) => {
+                                if (Array.isArray(s) && s.length > 0) {
+                                    const path = s[0];
+                                    return path.split(/[\\\/]/).pop()?.replace(/\.[^.]*$/, '');
+                                }
+                                return null;
+                            })
+                            .filter((b: any) => b);
+                        
+                        if (shortcutBinaries.length > 0) {
+                            packageData.binaries = [...(packageData.binaries || []), ...shortcutBinaries];
+                        }
+                    }
+
+                    contents[appName] = packageData;
+                } catch {
+                    // Skip individual manifest parse errors
+                    continue;
+                }
+                
+                processedFiles++;
+            }
+            
+            // Show progress for large buckets
+            if (showProgress && totalFiles > 100 && processedFiles % 100 === 0) {
+                const percent = Math.round((processedFiles / totalFiles) * 100);
+                console.log(`  Progress: ${processedFiles}/${totalFiles} (${percent}%)`);
+            }
+        }
+
+        // Cache the results
+        bucketCaches.set(bucketDir, {
+            contents,
+            timestamp: Date.now(),
+            bucketPath: bucketDir
+        });
+
+        if (showProgress && totalFiles > 100) {
+            console.log(`  Completed: ${processedFiles} packages cached`);
+        }
+
+        return contents;
+    } catch {
+        return null;
+    }
+}
+
+// Clear stale caches periodically
+setInterval(clearStaleBucketCaches, BUCKET_CACHE_TTL_MS / 2);
+
 export const definition: CommandDefinition = {
     name: "search",
     description: "Search for packages in Scoop buckets",
@@ -302,7 +510,7 @@ export const definition: CommandDefinition = {
         const verbose = Boolean(args.flags["verbose"] || args.flags.v);
 
         try {
-            const results = searchBuckets(query, options);
+            const results = await searchBuckets(query, options);
             const searchTime = performance.now() - startTime;
 
             formatResults(results, verbose);
@@ -320,4 +528,4 @@ export const definition: CommandDefinition = {
             return 1;
         }
     },
-};
+};;
