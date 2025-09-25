@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, statSync } from "fs";
+import { $ } from "bun";
+import { existsSync, statSync } from "fs";
 import { join } from "path";
 import { error, log, newline, success, warn } from "src/utils/logger.ts";
 import { listInstalledApps, type InstalledApp } from "../lib/apps.ts";
@@ -20,45 +21,34 @@ interface AppStatus {
     info: string[];
 }
 
-// Check if a bucket directory has updates
-async function checkBucketUpdate(bucketPath: string): Promise<boolean> {
+// Check if a git repository has updates
+async function checkGitRepoStatus(repoPath: string): Promise<boolean> {
     try {
-        // Check if .git directory exists
-        const gitPath = join(bucketPath, "..", ".git");
-        const parentGitPath = join(bucketPath, ".git");
+        const gitPath = join(repoPath, ".git");
 
-        const hasGit = existsSync(gitPath) || existsSync(parentGitPath);
-
-        if (!hasGit) {
-            return false;
+        if (!existsSync(gitPath)) {
+            const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            const { mtimeMs } = statSync(repoPath);
+            return mtimeMs < thirtyDaysAgo;
         }
 
-        // Check if bucket has the expected structure
-        const bucketFiles = readdirSync(bucketPath);
-        const hasManifests = bucketFiles.some(file => file.endsWith(".json"));
+        await $`git -C ${repoPath} fetch -q origin`;
+        const branch = (await $`git -C ${repoPath} branch --show-current`.text()).trim();
+        const count = Number(await $`git -C ${repoPath} rev-list HEAD..origin/${branch}`.text());
 
-        if (!hasManifests) {
-            // Empty bucket or corrupted - consider it needing update
-            return true;
+        if (count > 0) {
+            return true; // Updates available
         }
 
-        // For self-contained operation without git access, we'll be conservative
-        // Only report bucket updates needed if there are clear signs of issues
-
-        // Check if the bucket directory itself is suspiciously old (older than 30 days)
-        // This catches truly stale buckets while avoiding false positives
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        const bucketStat = statSync(bucketPath);
-
-        if (bucketStat.mtime < thirtyDaysAgo) {
-            // Bucket hasn't been touched in a month - likely needs update
-            return true;
-        }
-
-        // Otherwise, assume bucket is fine for self-contained operation
+        // Ahead, or no remote tracking info. Assume up to date.
         return false;
-    } catch {
-        // On any error, assume the bucket is fine
+    } catch (e) {
+        console.log(e);
+        warn(`Could not check for updates in repository: ${repoPath}`);
+        // Log the error for debugging purposes
+        if (e instanceof Error) {
+            warn(e.message);
+        }
         return false;
     }
 }
@@ -166,40 +156,47 @@ function compareVersions(installed: string | null, latest: string | null): boole
     return compareVersionArrays(latestParts, installedParts) > 0;
 }
 
-// Check status internally without external dependencies
+// Check status internally without external dependencies, running checks in parallel
 async function checkInternalStatus(local: boolean): Promise<{
     scoopOutdated: boolean;
     bucketsOutdated: boolean;
 }> {
-    let bucketsOutdated = false;
-    let scoopOutdated = false;
-
     if (local) {
         return { scoopOutdated: false, bucketsOutdated: false };
     }
 
+    let scoopOutdated = false;
+    let bucketsOutdated = false;
+
     try {
-        // Check buckets for updates
+        const scoopRepoPath = getScoopAppPath("scoop", "user");
+
+        const checks: Promise<void>[] = [];
+
+        // Check scoop status
+        checks.push(
+            checkGitRepoStatus(scoopRepoPath).then(outdated => {
+                if (outdated) scoopOutdated = true;
+            })
+        );
+
+        // Check buckets status
         const scopes: ("user" | "global")[] = ["user", "global"];
+        const buckets = scopes.flatMap(scope => findAllBucketsInScope(scope));
 
-        for (const scope of scopes) {
-            const buckets = findAllBucketsInScope(scope);
-
-            for (const bucket of buckets) {
-                const bucketDir = bucket.bucketDir;
-                if (await checkBucketUpdate(bucketDir)) {
-                    bucketsOutdated = true;
-                    break;
-                }
-            }
-
-            if (bucketsOutdated) break;
+        if (buckets.length > 0) {
+            checks.push(
+                ...buckets.map(({ bucketDir }) =>
+                    checkGitRepoStatus(join(bucketDir, "..")).then(outdated => {
+                        if (outdated) bucketsOutdated = true;
+                    })
+                )
+            );
         }
 
-        // For Scoop itself, we'll assume it's up to date since checking would require external commands
-        scoopOutdated = false;
+        await Promise.all(checks.map(p => p.catch(() => {})));
     } catch (e) {
-        error("Could not check bucket status:", e);
+        error("Could not check status:", e);
     }
 
     return { scoopOutdated, bucketsOutdated };
@@ -294,20 +291,14 @@ function displayStatus(
     // Display Scoop status first
     if (scoopOutdated) {
         warn("Scoop is out of date. Run 'scoop update' to get the latest version.");
-    }
-
-    // If Scoop is not outdated, show Scoop status
-    if (!scoopOutdated) {
+    } else {
         success("Scoop is up to date.");
     }
 
     // Display bucket status
     if (bucketsOutdated) {
         warn("Bucket(s) are out of date. Run 'scoop update' to get the latest changes.");
-    }
-
-    // Show bucket status when not outdated
-    if (!bucketsOutdated) {
+    } else {
         success("All buckets are up to date.");
     }
 
@@ -482,11 +473,8 @@ export const definition: CommandDefinition = {
             }
 
             // Display results
-            if (json) {
-                displayStatusJson(statuses, scoopStatus);
-            } else {
-                displayStatus(statuses, scoopStatus);
-            }
+            if (json) displayStatusJson(statuses, scoopStatus);
+            else displayStatus(statuses, scoopStatus);
 
             return 0;
         } catch (e) {
