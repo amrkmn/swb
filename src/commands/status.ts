@@ -34,7 +34,9 @@ async function checkGitRepoStatus(repoPath: string): Promise<boolean> {
 
         await $`git -C ${repoPath} fetch -q origin`;
         const branch = (await $`git -C ${repoPath} branch --show-current`.text()).trim();
-        const count = Number(await $`git -C ${repoPath} rev-list HEAD..origin/${branch}`.text());
+        const count = Number(
+            (await $`git -C ${repoPath} rev-list --count HEAD..origin/${branch}`.text()).trim()
+        );
 
         if (count > 0) {
             return true; // Updates available
@@ -156,6 +158,20 @@ function compareVersions(installed: string | null, latest: string | null): boole
     return compareVersionArrays(latestParts, installedParts) > 0;
 }
 
+function raceForTrue(promises: Promise<boolean>[]): Promise<boolean> {
+    return new Promise(resolve => {
+        let count = 0;
+        promises.forEach(p =>
+            p
+                .then(result => {
+                    if (result === true) resolve(true);
+                    else if (++count === promises.length) resolve(false);
+                })
+                .catch(() => ++count === promises.length && resolve(false))
+        );
+    });
+}
+
 // Check status internally without external dependencies, running checks in parallel
 async function checkInternalStatus(local: boolean): Promise<{
     scoopOutdated: boolean;
@@ -171,30 +187,18 @@ async function checkInternalStatus(local: boolean): Promise<{
     try {
         const scoopRepoPath = getScoopAppPath("scoop", "user");
 
-        const checks: Promise<void>[] = [];
-
         // Check scoop status
-        checks.push(
-            checkGitRepoStatus(scoopRepoPath).then(outdated => {
-                if (outdated) scoopOutdated = true;
-            })
-        );
+        scoopOutdated = await checkGitRepoStatus(scoopRepoPath);
 
         // Check buckets status
         const scopes: ("user" | "global")[] = ["user", "global"];
         const buckets = scopes.flatMap(scope => findAllBucketsInScope(scope));
 
-        if (buckets.length > 0) {
-            checks.push(
-                ...buckets.map(({ bucketDir }) =>
-                    checkGitRepoStatus(join(bucketDir, "..")).then(outdated => {
-                        if (outdated) bucketsOutdated = true;
-                    })
-                )
-            );
-        }
-
-        await Promise.all(checks.map(p => p.catch(() => {})));
+        bucketsOutdated = await raceForTrue(
+            buckets.map(async ({ bucketDir }) => {
+                return await checkGitRepoStatus(join(bucketDir, ".."));
+            })
+        );
     } catch (e) {
         error("Could not check status:", e);
     }
