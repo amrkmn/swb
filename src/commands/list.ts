@@ -1,12 +1,8 @@
+import { formatRow } from "src/lib/commands/list.ts";
 import { listInstalledApps } from "src/lib/apps.ts";
 import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
-import { cyan, dim, green, warning } from "src/utils/colors.ts";
+import { warning } from "src/utils/colors.ts";
 import { error, log } from "src/utils/logger.ts";
-
-function formatRow(name: string, version: string, flags: string[]): string {
-    const flagStr = flags.length > 0 ? ` ${dim(`[${flags.join(", ")}]`)}` : "";
-    return `${cyan(name)} ${green(version)}${flagStr}`;
-}
 
 // New style command definition
 export const definition: CommandDefinition = {
