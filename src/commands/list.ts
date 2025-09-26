@@ -1,7 +1,7 @@
-import { listInstalledApps } from "../lib/apps.ts";
-import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
-import { cyan, dim, green, warning } from "../utils/colors.ts";
-import { error, log } from "../utils/logger.ts";
+import { listInstalledApps } from "src/lib/apps.ts";
+import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
+import { cyan, dim, green, warning } from "src/utils/colors.ts";
+import { error, log } from "src/utils/logger.ts";
 
 function formatRow(name: string, version: string, flags: string[]): string {
     const flagStr = flags.length > 0 ? ` ${dim(`[${flags.join(", ")}]`)}` : "";

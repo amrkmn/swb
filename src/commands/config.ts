@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
-import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
-import { error, log } from "../utils/logger.ts";
+import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
+import { green } from "src/utils/colors";
+import { error, log } from "src/utils/logger.ts";
 
 // Types
 interface ConfigObject {
@@ -63,7 +64,7 @@ function printAll(config: ConfigObject): void {
     }
 
     for (const [key, value] of Object.entries(config)) {
-        log(`${key}: ${value}`);
+        log(`${green(key)}: ${value}`);
     }
 }
 

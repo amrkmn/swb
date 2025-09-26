@@ -1,7 +1,7 @@
 import { whichCommand } from "src/utils/commands.ts";
-import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
-import { findInPATH, findInShims } from "../lib/which.ts";
-import { error, log } from "../utils/logger.ts";
+import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
+import { findInPATH, findInShims } from "src/lib/which.ts";
+import { error, log } from "src/utils/logger.ts";
 
 // New style command definition
 export const definition: CommandDefinition = {

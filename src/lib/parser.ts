@@ -1,4 +1,4 @@
-import { error } from "../utils/logger.ts";
+import { error } from "src/utils/logger.ts";
 
 // Enhanced parsed arguments interface
 export interface ParsedArgs {

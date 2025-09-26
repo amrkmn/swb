@@ -1,7 +1,7 @@
-import { resolveAppPrefix } from "../lib/apps.ts";
-import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
-import type { InstallScope } from "../lib/paths.ts";
-import { error, log } from "../utils/logger.ts";
+import { resolveAppPrefix } from "src/lib/apps.ts";
+import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
+import type { InstallScope } from "src/lib/paths.ts";
+import { error, log } from "src/utils/logger.ts";
 
 // New style command definition
 export const definition: CommandDefinition = {
@@ -39,7 +39,7 @@ export const definition: CommandDefinition = {
                 prefix = resolveAppPrefix(app, "global", true);
             }
 
-            if (!prefix) {
+            if (prefix === null) {
                 error(`'${app}' is not installed or has no current version`);
                 return 1;
             }

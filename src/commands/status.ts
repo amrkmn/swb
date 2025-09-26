@@ -1,10 +1,11 @@
 import { $ } from "bun";
 import { existsSync, statSync } from "fs";
 import { join } from "path";
+import { Loading } from "src/utils/loader.ts";
 import { error, log, newline, success, warn } from "src/utils/logger.ts";
-import { listInstalledApps, type InstalledApp } from "../lib/apps.ts";
-import { findAllBucketsInScope, findAllManifests, readManifestFields } from "../lib/manifests.ts";
-import type { CommandDefinition, ParsedArgs } from "../lib/parser.ts";
+import { listInstalledApps, type InstalledApp } from "src/lib/apps.ts";
+import { findAllBucketsInScope, findAllManifests, readManifestFields } from "src/lib/manifests.ts";
+import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
 
 // Status information for an installed app
 interface AppStatus {
@@ -436,9 +437,11 @@ export const definition: CommandDefinition = {
         try {
             const local = Boolean(args.flags.local || args.flags.l);
             const json = Boolean(args.flags.json || args.flags.j);
+            let loader: Loading | null = null;
 
             if (!local && !json) {
-                log("Checking for updates...");
+                loader = new Loading("Checking for updates");
+                loader.start();
             }
 
             // Get all installed apps
@@ -458,6 +461,7 @@ export const definition: CommandDefinition = {
                         )
                     );
                 } else {
+                    loader?.stop();
                     warn("No packages installed.");
                 }
                 return 0;
@@ -475,6 +479,7 @@ export const definition: CommandDefinition = {
                     statuses.push(status);
                 }
             }
+            loader?.stop();
 
             // Display results
             if (json) displayStatusJson(statuses, scoopStatus);

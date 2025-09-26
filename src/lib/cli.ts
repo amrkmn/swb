@@ -3,8 +3,8 @@ import { commandRegistry, getCommandDefinition } from "./commands.ts";
 import { parser, type CommandDefinition } from "./parser.ts";
 
 // Global variable injected during build
-import { success } from "../utils/colors.ts";
-import { error, log, warn } from "../utils/logger.ts";
+import { success } from "src/utils/colors.ts";
+import { error, log, warn } from "src/utils/logger.ts";
 
 declare const SWB_VERSION: string;
 
@@ -30,20 +30,6 @@ async function getVersion(): Promise<string> {
     } catch {
         return "unknown";
     }
-}
-
-// Load a command from the static registry
-async function loadCommand(name: string): Promise<CommandDefinition> {
-    const cached = commandCache.get(name);
-    if (cached) return cached;
-
-    const definition = getCommandDefinition(name);
-    if (!definition) {
-        throw new Error(`Unknown command: ${name}`);
-    }
-
-    commandCache.set(name, definition);
-    return definition;
 }
 
 // Register all available commands from the static registry

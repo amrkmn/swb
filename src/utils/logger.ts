@@ -51,7 +51,7 @@ export class Logger {
      * Log an error message in red
      */
     static error(...messages: any[]): void {
-        this.writeError(red());
+        this.writeError(red(messages.join(" ")));
     }
 
     /**
