@@ -1,10 +1,9 @@
 import { $ } from "bun";
 import { existsSync, statSync } from "fs";
 import { join } from "path";
-import { Loading } from "src/utils/loader.ts";
-import { error, log, newline, success, warn } from "src/utils/logger.ts";
-import { listInstalledApps, type InstalledApp } from "src/lib/apps.ts";
+import { type InstalledApp } from "src/lib/apps.ts";
 import { findAllBucketsInScope, findAllManifests, readManifestFields } from "src/lib/manifests.ts";
+import { error, log, newline, success, warn } from "src/utils/logger.ts";
 
 // Status information for an installed app
 export interface AppStatus {
@@ -317,10 +316,7 @@ export function displayStatus(
     );
 
     if (appsWithIssues.length === 0) {
-        // Check if everything is truly ok
-        if (!scoopOutdated && !bucketsOutdated) {
-            success("Everything is ok!");
-        }
+        success("All packages are okay and up to date.");
         return;
     }
 
