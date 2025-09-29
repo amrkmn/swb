@@ -4,7 +4,7 @@ import { error } from "src/utils/logger.ts";
 
 export const definition: CommandDefinition = {
     name: "search",
-    description: "Search for packages in Scoop buckets using multi-threaded processing",
+    description: "Search for packages in Scoop buckets",
     options: [
         {
             flags: "-b, --bucket",
