@@ -105,12 +105,13 @@ export function findAllBucketsInScope(
     return names.map(name => {
         const bucketRootDir = path.join(bucketsRoot, name);
         const bucketSubDir = path.join(bucketRootDir, "bucket");
-        
+
         // Check if bucket subdirectory exists and has JSON files
         if (existsSync(bucketSubDir)) {
             try {
-                const subDirFiles = readdirSync(bucketSubDir, { withFileTypes: true })
-                    .filter(f => f.isFile() && f.name.endsWith(".json"));
+                const subDirFiles = readdirSync(bucketSubDir, { withFileTypes: true }).filter(
+                    f => f.isFile() && f.name.endsWith(".json")
+                );
                 if (subDirFiles.length > 0) {
                     return { name, bucketDir: bucketSubDir };
                 }
@@ -118,7 +119,7 @@ export function findAllBucketsInScope(
                 // Fall through to check root directory
             }
         }
-        
+
         // Use root directory (for buckets that store manifests directly in root)
         return { name, bucketDir: bucketRootDir };
     });
@@ -133,7 +134,7 @@ export function findBucketManifest(input: string): FoundManifest | null {
     if (bucket) {
         for (const scope of scopes) {
             const sp = resolveScoopPaths(scope);
-            
+
             // Try bucket subdirectory first
             const bucketSubDir = path.join(sp.buckets, bucket, "bucket", `${app}.json`);
             if (existsSync(bucketSubDir)) {
@@ -152,7 +153,7 @@ export function findBucketManifest(input: string): FoundManifest | null {
                     // try root directory
                 }
             }
-            
+
             // Try root directory if bucket subdirectory doesn't work
             const bucketRootDir = path.join(sp.buckets, bucket, `${app}.json`);
             if (existsSync(bucketRootDir)) {
@@ -220,7 +221,7 @@ export function findAllManifests(input: string): FoundManifest[] {
         // Search specific bucket only
         for (const scope of scopes) {
             const sp = resolveScoopPaths(scope);
-            
+
             // Try bucket subdirectory first
             const bucketSubDir = path.join(sp.buckets, bucket, "bucket", `${app}.json`);
             if (existsSync(bucketSubDir)) {
@@ -239,7 +240,7 @@ export function findAllManifests(input: string): FoundManifest[] {
                     // try root directory
                 }
             }
-            
+
             // Try root directory if bucket subdirectory doesn't work
             const bucketRootDir = path.join(sp.buckets, bucket, `${app}.json`);
             if (existsSync(bucketRootDir)) {

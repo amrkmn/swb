@@ -1,5 +1,5 @@
 import { printInfo } from "src/lib/commands/info.ts";
-import { findAllManifests, type FoundManifest } from "src/lib/manifests.ts";
+import { findAllManifests } from "src/lib/manifests.ts";
 import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
 import { error, info } from "src/utils/logger";
 

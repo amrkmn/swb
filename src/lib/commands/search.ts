@@ -4,10 +4,10 @@
  */
 
 import { listInstalledApps } from "src/lib/apps.ts";
-import { findInstalledManifest } from "src/lib/manifests.ts";
 import { searchCache, type PackageIndexEntry } from "src/lib/commands/cache.ts";
+import { findInstalledManifest } from "src/lib/manifests.ts";
 import { blue, bold, cyan, dim, green, yellow } from "src/utils/colors.ts";
-import { warn, verbose, debug, log } from "src/utils/logger.ts";
+import { log, verbose, warn } from "src/utils/logger.ts";
 
 export interface SearchResult {
     name: string;

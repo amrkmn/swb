@@ -3,11 +3,11 @@
  * This solves the cold start problem by maintaining a persistent cache of searchable data.
  */
 
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { findAllBucketsInScope } from "./manifests.ts";
-import { debug, verbose } from "src/utils/logger.ts";
+import { findAllBucketsInScope } from "src/lib/manifests.ts";
+import { debug } from "src/utils/logger.ts";
 
 /**
  * Get the SWB data directory from environment variable or default to ~/.swb
@@ -24,7 +24,7 @@ function getSwbDataDir(): string {
     if (!home) {
         throw new Error("Could not determine home directory (USERPROFILE/HOME)");
     }
-    
+
     return path.join(home, ".swb");
 }
 
@@ -83,7 +83,7 @@ class SearchCacheManager {
             if (existsSync(this.cacheFile)) {
                 const content = readFileSync(this.cacheFile, "utf8");
                 const cached = JSON.parse(content) as SearchCache;
-                
+
                 // Validate cache version
                 if (cached.version === CACHE_VERSION) {
                     this.cache = cached;
@@ -100,7 +100,7 @@ class SearchCacheManager {
         this.cache = {
             version: CACHE_VERSION,
             lastUpdated: 0,
-            buckets: {}
+            buckets: {},
         };
         return this.cache;
     }
@@ -155,7 +155,7 @@ class SearchCacheManager {
 
         // Check if we have a valid cached entry
         const existing = cache.buckets[bucketKey];
-        if (!force && existing && (now - existing.lastScanned) < CACHE_TTL_MS) {
+        if (!force && existing && now - existing.lastScanned < CACHE_TTL_MS) {
             debug(`Using cached data for bucket ${bucketInfo.name} (${scope})`);
             return existing;
         }
@@ -171,7 +171,7 @@ class SearchCacheManager {
                 bucketDir: bucketInfo.bucketDir,
                 lastScanned: now,
                 lastModified: 0,
-                packages: []
+                packages: [],
             };
         }
 
@@ -189,12 +189,12 @@ class SearchCacheManager {
             const BATCH_SIZE = 10;
             for (let i = 0; i < jsonFiles.length; i += BATCH_SIZE) {
                 const batch = jsonFiles.slice(i, i + BATCH_SIZE);
-                
-                const batchPromises = batch.map(async (appName) => {
+
+                const batchPromises = batch.map(async appName => {
                     try {
                         const manifestPath = path.join(bucketInfo.bucketDir, `${appName}.json`);
                         const stats = await stat(manifestPath);
-                        
+
                         // Skip very large files
                         if (stats.size > MAX_MANIFEST_SIZE) {
                             debug(`Skipping large manifest: ${manifestPath} (${stats.size} bytes)`);
@@ -211,7 +211,7 @@ class SearchCacheManager {
 
                         const content = await readFile(manifestPath, "utf8");
                         const manifest = JSON.parse(content);
-                        
+
                         const entry: PackageIndexEntry = {
                             name: appName,
                             version: manifest.version,
@@ -220,7 +220,7 @@ class SearchCacheManager {
                             scope,
                             binaries: this.extractBinaries(content),
                             manifestPath,
-                            lastModified: stats.mtimeMs
+                            lastModified: stats.mtimeMs,
                         };
 
                         return entry;
@@ -231,7 +231,9 @@ class SearchCacheManager {
                 });
 
                 const batchResults = await Promise.all(batchPromises);
-                packages.push(...batchResults.filter((pkg): pkg is PackageIndexEntry => pkg !== null));
+                packages.push(
+                    ...batchResults.filter((pkg): pkg is PackageIndexEntry => pkg !== null)
+                );
 
                 // Small yield between batches
                 if (i + BATCH_SIZE < jsonFiles.length) {
@@ -245,7 +247,7 @@ class SearchCacheManager {
                 bucketDir: bucketInfo.bucketDir,
                 lastScanned: now,
                 lastModified: maxModified,
-                packages
+                packages,
             };
 
             // Update cache
@@ -264,7 +266,7 @@ class SearchCacheManager {
                 bucketDir: bucketInfo.bucketDir,
                 lastScanned: now,
                 lastModified: 0,
-                packages: []
+                packages: [],
             };
         }
     }
@@ -278,11 +280,9 @@ class SearchCacheManager {
 
         for (const scope of scopes) {
             const buckets = findAllBucketsInScope(scope);
-            
+
             for (const bucketInfo of buckets) {
-                updatePromises.push(
-                    this.scanBucket(bucketInfo, scope, force).then(() => {})
-                );
+                updatePromises.push(this.scanBucket(bucketInfo, scope, force).then(() => {}));
             }
         }
 
@@ -353,9 +353,9 @@ class SearchCacheManager {
     async ensureFreshCache(): Promise<void> {
         const cache = this.loadCache();
         const now = Date.now();
-        
+
         // If cache is completely empty or very old, force update
-        if (Object.keys(cache.buckets).length === 0 || (now - cache.lastUpdated) > CACHE_TTL_MS) {
+        if (Object.keys(cache.buckets).length === 0 || now - cache.lastUpdated > CACHE_TTL_MS) {
             await this.updateCache();
         }
     }
@@ -368,7 +368,7 @@ class SearchCacheManager {
                 const emptyCache: SearchCache = {
                     version: CACHE_VERSION,
                     lastUpdated: 0,
-                    buckets: {}
+                    buckets: {},
                 };
                 writeFileSync(this.cacheFile, JSON.stringify(emptyCache, null, 2), "utf8");
                 debug("Search cache cleared");
