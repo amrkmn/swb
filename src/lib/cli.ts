@@ -1,9 +1,8 @@
 import { readFile } from "fs/promises";
-import { commandRegistry, getCommandDefinition } from "./commands.ts";
+import { commandRegistry } from "./commands.ts";
 import { parser, type CommandDefinition } from "./parser.ts";
 
 // Global variable injected during build
-import { success } from "src/utils/colors.ts";
 import { error, log, warn } from "src/utils/logger.ts";
 
 declare const SWB_VERSION: string;
