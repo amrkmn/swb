@@ -8,7 +8,7 @@ const packageJsonFile = Bun.file("package.json");
 const packageJson = await packageJsonFile.json();
 
 // Determine version: use env variable if provided, else default to "dev"
-const version = process.env.SWB_VERSION ?? "dev";
+const version = process.env.SWB_VERSION ?? `${Date.now()}-dev`;
 
 // Update package.json version if SWB_VERSION is provided and different from current
 if (process.env.SWB_VERSION && process.env.SWB_VERSION !== packageJson.version) {
