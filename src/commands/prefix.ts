@@ -6,7 +6,7 @@ import { error, log } from "src/utils/logger.ts";
 // New style command definition
 export const definition: CommandDefinition = {
     name: "prefix",
-    description: "Print the installation prefix (current version directory) of an app",
+    description: "Print the installation prefix of an app",
     arguments: [
         {
             name: "app",

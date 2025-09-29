@@ -5,7 +5,7 @@ import { error, log } from "src/utils/logger";
 // New style command definition
 export const definition: CommandDefinition = {
     name: "config",
-    description: "Get/Set/Remove Scoop-compatible configuration",
+    description: "Manage Scoop's configuration settings",
     arguments: [
         {
             name: "name",
