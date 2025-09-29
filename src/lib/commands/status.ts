@@ -44,7 +44,6 @@ export async function checkGitRepoStatus(repoPath: string): Promise<boolean> {
         // Ahead, or no remote tracking info. Assume up to date.
         return false;
     } catch (e) {
-        console.log(e);
         warn(`Could not check for updates in repository: ${repoPath}`);
         // Log the error for debugging purposes
         if (e instanceof Error) {

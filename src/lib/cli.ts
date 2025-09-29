@@ -1,9 +1,10 @@
 import { readFile } from "fs/promises";
 import { commandRegistry } from "./commands.ts";
 import { parser, type CommandDefinition } from "./parser.ts";
+import { searchCache } from "./commands/cache.ts";
 
 // Global variable injected during build
-import { error, log, warn } from "src/utils/logger.ts";
+import { error, log, warn, debug } from "src/utils/logger.ts";
 
 declare const SWB_VERSION: string;
 
@@ -46,11 +47,23 @@ async function registerCommands(): Promise<void> {
     }
 }
 
+// Background cache warming - don't block the CLI
+function warmSearchCacheBackground(): void {
+    // Fire-and-forget cache warming for better subsequent performance
+    searchCache.ensureFreshCache().catch(error => {
+        debug(`Background cache warming failed: ${error}`);
+    });
+}
+
 // Main CLI entry point
 export async function runCLI(argv: string[]): Promise<number> {
     try {
         // Register all commands
         await registerCommands();
+
+        // Start background cache warming to improve future search performance
+        // This is non-blocking and will run in the background
+        warmSearchCacheBackground();
 
         // Parse arguments
         const parsed = parser.parse(argv);

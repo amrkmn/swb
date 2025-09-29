@@ -102,10 +102,26 @@ export function findAllBucketsInScope(
     } catch {
         return [];
     }
-    return names.map(name => ({
-        name,
-        bucketDir: path.join(bucketsRoot, name, "bucket"),
-    }));
+    return names.map(name => {
+        const bucketRootDir = path.join(bucketsRoot, name);
+        const bucketSubDir = path.join(bucketRootDir, "bucket");
+        
+        // Check if bucket subdirectory exists and has JSON files
+        if (existsSync(bucketSubDir)) {
+            try {
+                const subDirFiles = readdirSync(bucketSubDir, { withFileTypes: true })
+                    .filter(f => f.isFile() && f.name.endsWith(".json"));
+                if (subDirFiles.length > 0) {
+                    return { name, bucketDir: bucketSubDir };
+                }
+            } catch {
+                // Fall through to check root directory
+            }
+        }
+        
+        // Use root directory (for buckets that store manifests directly in root)
+        return { name, bucketDir: bucketRootDir };
+    });
 }
 
 export function findBucketManifest(input: string): FoundManifest | null {
@@ -117,21 +133,42 @@ export function findBucketManifest(input: string): FoundManifest | null {
     if (bucket) {
         for (const scope of scopes) {
             const sp = resolveScoopPaths(scope);
-            const file = path.join(sp.buckets, bucket, "bucket", `${app}.json`);
-            if (existsSync(file)) {
+            
+            // Try bucket subdirectory first
+            const bucketSubDir = path.join(sp.buckets, bucket, "bucket", `${app}.json`);
+            if (existsSync(bucketSubDir)) {
                 try {
-                    const raw = readFileSync(file, "utf8");
+                    const raw = readFileSync(bucketSubDir, "utf8");
                     const data = JSON.parse(raw);
                     return {
                         source: "bucket",
                         scope,
                         bucket,
                         app,
-                        filePath: file,
+                        filePath: bucketSubDir,
                         manifest: data,
                     };
                 } catch {
-                    // try next scope/bucket
+                    // try root directory
+                }
+            }
+            
+            // Try root directory if bucket subdirectory doesn't work
+            const bucketRootDir = path.join(sp.buckets, bucket, `${app}.json`);
+            if (existsSync(bucketRootDir)) {
+                try {
+                    const raw = readFileSync(bucketRootDir, "utf8");
+                    const data = JSON.parse(raw);
+                    return {
+                        source: "bucket",
+                        scope,
+                        bucket,
+                        app,
+                        filePath: bucketRootDir,
+                        manifest: data,
+                    };
+                } catch {
+                    // try next scope
                 }
             }
         }
@@ -183,17 +220,38 @@ export function findAllManifests(input: string): FoundManifest[] {
         // Search specific bucket only
         for (const scope of scopes) {
             const sp = resolveScoopPaths(scope);
-            const file = path.join(sp.buckets, bucket, "bucket", `${app}.json`);
-            if (existsSync(file)) {
+            
+            // Try bucket subdirectory first
+            const bucketSubDir = path.join(sp.buckets, bucket, "bucket", `${app}.json`);
+            if (existsSync(bucketSubDir)) {
                 try {
-                    const raw = readFileSync(file, "utf8");
+                    const raw = readFileSync(bucketSubDir, "utf8");
                     const data = JSON.parse(raw);
                     results.push({
                         source: "bucket",
                         scope,
                         bucket,
                         app,
-                        filePath: file,
+                        filePath: bucketSubDir,
+                        manifest: data,
+                    });
+                } catch {
+                    // try root directory
+                }
+            }
+            
+            // Try root directory if bucket subdirectory doesn't work
+            const bucketRootDir = path.join(sp.buckets, bucket, `${app}.json`);
+            if (existsSync(bucketRootDir)) {
+                try {
+                    const raw = readFileSync(bucketRootDir, "utf8");
+                    const data = JSON.parse(raw);
+                    results.push({
+                        source: "bucket",
+                        scope,
+                        bucket,
+                        app,
+                        filePath: bucketRootDir,
                         manifest: data,
                     });
                 } catch {

@@ -1,4 +1,4 @@
-import { formatResults, searchBuckets, type SearchResult } from "src/lib/commands/search.ts";
+import { formatResults, searchBuckets, type SearchResult } from "src/lib/commands/search";
 import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
 import { error } from "src/utils/logger.ts";
 
@@ -20,7 +20,7 @@ export const definition: CommandDefinition = {
         },
         {
             flags: "-v, --verbose",
-            description: "Show package descriptions",
+            description: "Show package descriptions and search progress",
         },
     ],
     arguments: [
@@ -47,7 +47,7 @@ export const definition: CommandDefinition = {
             const verbose = Boolean(args.flags.verbose || args.global.verbose);
 
             // Perform the search
-            const results: SearchResult[] = await searchBuckets(query, options);
+            const results: SearchResult[] = await searchBuckets(query, options, verbose);
 
             // Display results
             formatResults(results, verbose);
@@ -58,4 +58,4 @@ export const definition: CommandDefinition = {
             return 1;
         }
     },
-};
+};;
