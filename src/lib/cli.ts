@@ -64,7 +64,7 @@ export async function runCLI(argv: string[]): Promise<number> {
 
         if (parsed.global.version) {
             const version = await getVersion();
-            log(success(version));
+            log(version);
             return 0;
         }
 
