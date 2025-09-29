@@ -10,8 +10,8 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { resolveAppPrefix } from "./apps.ts";
-import { resolveScoopPaths } from "./paths.ts";
+import { resolveAppPrefix } from "src/lib/apps.ts";
+import { resolveScoopPaths } from "src/lib/paths.ts";
 
 export interface FoundManifest {
     source: "installed" | "bucket";

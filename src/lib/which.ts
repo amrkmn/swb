@@ -7,7 +7,7 @@
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { bothScopes } from "./paths.ts";
+import { bothScopes } from "src/lib/paths.ts";
 
 function getPathExts(): string[] {
     try {

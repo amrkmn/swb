@@ -3,7 +3,7 @@
  * This module centralizes command imports and provides a registry for the CLI system.
  */
 
-import type { CommandDefinition } from "./parser.ts";
+import type { CommandDefinition } from "src/lib/parser.ts";
 
 // Import all command definitions
 import { definition as cacheCommand } from "src/commands/cache.ts";

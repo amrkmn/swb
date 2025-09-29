@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
-import { commandRegistry } from "./commands.ts";
-import { parser, type CommandDefinition } from "./parser.ts";
-import { searchCache } from "./commands/cache.ts";
+import { commandRegistry } from "src/lib/commands.ts";
+import { parser, type CommandDefinition } from "src/lib/parser.ts";
+import { searchCache } from "src/lib/commands/cache.ts";
 
 // Global variable injected during build
 import { error, log, warn, debug } from "src/utils/logger.ts";

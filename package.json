@@ -1,13 +1,15 @@
 {
     "name": "swb",
-    "version": "0.1.0",
     "description": "Scoop With Bun (swb): A JavaScript implementation of Scoop using Bun's runtime.",
-    "license": "MIT",
+    "version": "0.1.0",
+    "author": "amrkmn",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/amrkmn/swb"
+    },
     "type": "module",
     "module": "src/cli.ts",
-    "bin": {
-        "swb": "dist/cli.js"
-    },
+    "license": "MIT",
     "scripts": {
         "dev": "bun run src/cli.ts",
         "build": "bun run scripts/build.ts",
@@ -16,13 +18,20 @@
         "format:check": "prettier --check .",
         "format:src": "prettier --write src/ scripts/"
     },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "@types/node": "^24.5.2",
+        "chalk": "^5.6.2",
+        "prettier": "^3.6.2"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "bin": {
+        "swb": "dist/cli.js"
+    },
     "engines": {
         "bun": ">=1.2.0"
-    },
-    "author": "amrkmn",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/amrkmn/swb"
     },
     "keywords": [
         "scoop",
@@ -30,16 +39,5 @@
         "cli",
         "windows",
         "package-manager"
-    ],
-    "devDependencies": {
-        "@types/bun": "latest",
-        "@types/node": "^24.5.2",
-        "prettier": "^3.6.2"
-    },
-    "peerDependencies": {
-        "typescript": "^5"
-    },
-    "dependencies": {
-        "chalk": "^5.6.2"
-    }
+    ]
 }

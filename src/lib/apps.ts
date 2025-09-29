@@ -6,7 +6,7 @@
 
 import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { bothScopes, resolveScoopPaths, type InstallScope } from "./paths.ts";
+import { bothScopes, resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
 
 export interface InstalledApp {
     name: string;
