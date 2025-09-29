@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { listInstalledApps } from "src/lib/apps.ts";
-import { findAllBucketsInScope } from "src/lib/manifests.ts";
+import { findAllBucketsInScope, findInstalledManifest } from "src/lib/manifests.ts";
 import { blue, bold, cyan, dim, green, yellow } from "src/utils/colors.ts";
 import { warn } from "src/utils/logger.ts";
 
@@ -61,9 +61,18 @@ export async function searchBuckets(
     const flags = options.caseSensitive ? "" : "i";
     const pattern = new RegExp(query, flags);
 
-    // Get list of installed apps for checking installation status
+    // Get list of installed apps with bucket information for checking installation status
     const installedApps = listInstalledApps();
-    const installedSet = new Set(installedApps.map(app => app.name.toLowerCase()));
+    const installedMap = new Map<string, { bucket?: string; scope: string }>();
+    
+    // Build map of installed apps with their bucket information
+    for (const app of installedApps) {
+        const manifest = findInstalledManifest(app.name);
+        installedMap.set(app.name.toLowerCase(), {
+            bucket: manifest?.bucket,
+            scope: app.scope
+        });
+    }
 
     const scopes: ("user" | "global")[] = ["user", "global"];
     const isSimpleQuery = query.length > 1 && !/[.*+?^${}()|[\]\\]/.test(query);
@@ -110,7 +119,12 @@ export async function searchBuckets(
                                 const packageKey = `${bucketInfo.name}:${appName}`;
                                 if (seenPackages.has(packageKey)) continue;
 
-                                const isInstalled = installedSet.has(appName.toLowerCase());
+                                // Check if this specific bucket+app combination is installed
+                                const installedInfo = installedMap.get(appName.toLowerCase());
+                                const isInstalled = installedInfo && 
+                                    (installedInfo.bucket === bucketInfo.name || 
+                                     (!installedInfo.bucket && bucketInfo.name === 'main')); // fallback for legacy installs
+                                
                                 if (options.installedOnly && !isInstalled) continue;
 
                                 // Quick name check first
@@ -148,7 +162,7 @@ export async function searchBuckets(
                                         scope,
                                         description,
                                         binaries: undefined,
-                                        isInstalled,
+                                        isInstalled: !!isInstalled,
                                     });
 
                                     continue;
@@ -184,7 +198,7 @@ export async function searchBuckets(
                                                     scope,
                                                     description: manifest.description,
                                                     binaries: binaryMatches,
-                                                    isInstalled,
+                                                    isInstalled: !!isInstalled,
                                                 });
                                             }
                                         }
@@ -250,7 +264,7 @@ export async function searchBuckets(
             // Flatten results and deduplicate across buckets
             for (const bucketResults of batchResults) {
                 for (const result of bucketResults) {
-                    const packageKey = `${result.name.toLowerCase()}`;
+                    const packageKey = `${result.bucket}:${result.name.toLowerCase()}`;
 
                     // Global deduplication - prefer results from earlier scopes/buckets
                     if (!seenPackages.has(packageKey)) {
