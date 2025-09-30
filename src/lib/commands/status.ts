@@ -1,6 +1,6 @@
 import { $ } from "bun";
 import { existsSync, statSync } from "fs";
-import { join } from "path";
+import { basename, join } from "path";
 import { type InstalledApp } from "src/lib/apps.ts";
 import { findAllBucketsInScope, findAllManifests, readManifestFields } from "src/lib/manifests.ts";
 import { error, log, newline, success, warn } from "src/utils/logger.ts";
@@ -38,10 +38,9 @@ export async function checkGitRepoStatus(repoPath: string): Promise<boolean> {
         );
 
         if (count > 0) {
-            return true; // Updates available
+            return true;
         }
 
-        // Ahead, or no remote tracking info. Assume up to date.
         return false;
     } catch (e) {
         warn(`Could not check for updates in repository: ${repoPath}`);
@@ -194,6 +193,9 @@ export async function checkInternalStatus(local: boolean): Promise<{
 
         bucketsOutdated = await raceForTrue(
             buckets.map(async ({ bucketDir }) => {
+                if (basename(bucketDir) !== "bucket") {
+                    return await checkGitRepoStatus(bucketDir);
+                }
                 return await checkGitRepoStatus(join(bucketDir, ".."));
             })
         );
