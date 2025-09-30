@@ -1,13 +1,13 @@
 /**
- * Optimized search implementation with persistent caching for fast cold starts.
- * This replaces the synchronous manifest reading with precomputed search indexes.
+ * SQLite-only search implementation using Scoop's built-in database.
+ * Requires use_sqlite_cache to be enabled in Scoop configuration.
  */
 
 import { listInstalledApps } from "src/lib/apps.ts";
-import { searchCache, type PackageIndexEntry } from "src/lib/commands/cache.ts";
 import { findInstalledManifest } from "src/lib/manifests.ts";
+import { ScoopSQLiteCache } from "src/lib/sqlite";
 import { blue, bold, cyan, dim, green, yellow } from "src/utils/colors.ts";
-import { log, verbose, warn } from "src/utils/logger.ts";
+import { error, log, verbose, warn } from "src/utils/logger.ts";
 
 export interface SearchResult {
     name: string;
@@ -17,28 +17,6 @@ export interface SearchResult {
     description?: string;
     binaries?: string[];
     isInstalled: boolean;
-}
-
-function packageIndexToSearchResult(
-    entry: PackageIndexEntry,
-    installedMap: Map<string, { bucket?: string; scope: string }>,
-    matchedBinaries?: string[]
-): SearchResult {
-    const installedInfo = installedMap.get(entry.name.toLowerCase());
-    const isInstalled =
-        installedInfo &&
-        (installedInfo.bucket === entry.bucket ||
-            (!installedInfo.bucket && entry.bucket === "main")); // fallback for legacy installs
-
-    return {
-        name: entry.name,
-        version: entry.version,
-        bucket: entry.bucket,
-        scope: entry.scope,
-        description: entry.description,
-        binaries: matchedBinaries,
-        isInstalled: !!isInstalled,
-    };
 }
 
 export async function searchBucketsOptimized(
@@ -53,7 +31,7 @@ export async function searchBucketsOptimized(
     const searchStartTime = performance.now();
 
     if (isVerbose) {
-        verbose(`Starting optimized search for: "${query}"`);
+        verbose(`Starting SQLite search for: "${query}"`);
         if (options.bucket) {
             verbose(`Searching in bucket: ${options.bucket}`);
         }
@@ -65,92 +43,102 @@ export async function searchBucketsOptimized(
         }
     }
 
-    // Ensure cache is fresh (this is fast if cache is recent)
-    const cacheStartTime = performance.now();
-    await searchCache.ensureFreshCache();
-    const cacheTime = Math.round(performance.now() - cacheStartTime);
+    // Initialize SQLite cache - this is now required
+    const sqliteCache = new ScoopSQLiteCache();
 
-    if (isVerbose) {
-        verbose(`Cache validation completed in ${cacheTime}ms`);
-    }
+    try {
+        await sqliteCache.initialize();
 
-    // Get installed apps info for marking installation status
-    const installedStartTime = performance.now();
-    const installedApps = listInstalledApps();
-    const installedMap = new Map<string, { bucket?: string; scope: string }>();
-
-    for (const app of installedApps) {
-        const manifest = findInstalledManifest(app.name);
-        installedMap.set(app.name.toLowerCase(), {
-            bucket: manifest?.bucket,
-            scope: app.scope,
-        });
-    }
-
-    const installedTime = Math.round(performance.now() - installedStartTime);
-    if (isVerbose) {
-        verbose(`Loaded ${installedApps.length} installed apps in ${installedTime}ms`);
-    }
-
-    // Perform the search using cached index
-    const searchIndexStartTime = performance.now();
-    const indexResults = searchCache.search(query, options);
-    const searchIndexTime = Math.round(performance.now() - searchIndexStartTime);
-
-    if (isVerbose) {
-        verbose(
-            `Index search completed in ${searchIndexTime}ms, found ${indexResults.length} matches`
-        );
-    }
-
-    // Convert index entries to search results and apply filters
-    const results: SearchResult[] = [];
-    const flags = options.caseSensitive ? "" : "i";
-    const pattern = new RegExp(query, flags);
-
-    for (const entry of indexResults) {
-        // Check for binary matches to include in results
-        const matchedBinaries: string[] = [];
-        for (const binary of entry.binaries) {
-            if (pattern.test(binary)) {
-                matchedBinaries.push(binary);
-            }
+        if (isVerbose) {
+            verbose("Using Scoop's SQLite cache for search");
         }
 
-        const result = packageIndexToSearchResult(
-            entry,
-            installedMap,
-            matchedBinaries.length > 0 ? matchedBinaries : undefined
-        );
+        const sqliteStartTime = performance.now();
+        let sqliteResults = await sqliteCache.search(query);
+        const sqliteTime = Math.round(performance.now() - sqliteStartTime);
 
-        // Apply installed filter
-        if (options.installedOnly && !result.isInstalled) {
-            continue;
+        if (isVerbose) {
+            verbose(
+                `SQLite search completed in ${sqliteTime}ms, found ${sqliteResults.length} matches`
+            );
         }
 
-        results.push(result);
+        // Apply bucket filter if specified
+        if (options.bucket) {
+            sqliteResults = sqliteResults.filter(
+                result => result.bucket.toLowerCase() === options.bucket!.toLowerCase()
+            );
+        }
+
+        // Get installed apps info for marking installation status
+        const installedStartTime = performance.now();
+        const installedApps = listInstalledApps();
+        const installedMap = new Map<string, { bucket?: string; scope: string }>();
+
+        for (const app of installedApps) {
+            const manifest = findInstalledManifest(app.name);
+            installedMap.set(app.name.toLowerCase(), {
+                bucket: manifest?.bucket,
+                scope: app.scope,
+            });
+        }
+
+        const installedTime = Math.round(performance.now() - installedStartTime);
+        if (isVerbose) {
+            verbose(`Loaded ${installedApps.length} installed apps in ${installedTime}ms`);
+        }
+
+        // Update installation status and scope for results
+        const results = sqliteResults
+            .map(result => {
+                const installed = installedMap.get(result.name.toLowerCase());
+                return {
+                    ...result,
+                    isInstalled: !!installed,
+                    scope: installed?.scope === "global" ? ("global" as const) : ("user" as const),
+                };
+            })
+            .filter(result => {
+                // Apply installed filter
+                if (options.installedOnly && !result.isInstalled) {
+                    return false;
+                }
+                return true;
+            });
+
+        const totalTime = Math.round(performance.now() - searchStartTime);
+        if (isVerbose) {
+            verbose(`Total SQLite search time: ${totalTime}ms`);
+            verbose(`Breakdown - SQLite: ${sqliteTime}ms, Installed: ${installedTime}ms`);
+        }
+
+        // Clean up
+        sqliteCache.close();
 
         // Limit results to prevent excessive output
-        if (results.length >= 100) {
-            if (isVerbose) {
-                verbose(`Reached result limit of 100 packages`);
-            }
-            break;
+        return results.slice(0, 100);
+    } catch (initError) {
+        sqliteCache.close();
+
+        // Provide helpful error messages for common issues
+        let errorMessage = `SQLite cache initialization failed: ${initError instanceof Error ? initError.message : String(initError)}`;
+
+        if (errorMessage.includes("Scoop installation not found")) {
+            errorMessage += "\n\nPlease install Scoop first: https://scoop.sh";
+        } else if (errorMessage.includes("SQLite cache is disabled")) {
+            errorMessage += "\n\nEnable SQLite cache with: scoop config use_sqlite_cache true";
+            errorMessage += "\nThen run: scoop update";
+        } else if (
+            errorMessage.includes("database not found") ||
+            errorMessage.includes("table is empty")
+        ) {
+            errorMessage += "\n\nRun: scoop update";
         }
-    }
 
-    const totalTime = Math.round(performance.now() - searchStartTime);
-    if (isVerbose) {
-        verbose(`Total optimized search time: ${totalTime}ms`);
-        verbose(
-            `Breakdown - Cache: ${cacheTime}ms, Installed: ${installedTime}ms, Index: ${searchIndexTime}ms`
-        );
+        throw new Error(errorMessage);
     }
-
-    return results;
 }
 
-// Backward compatibility function - automatically chooses optimized version
 export async function searchBuckets(
     query: string,
     options: {
@@ -162,17 +150,15 @@ export async function searchBuckets(
 ): Promise<SearchResult[]> {
     try {
         return await searchBucketsOptimized(query, options, isVerbose);
-    } catch (error) {
-        if (isVerbose) {
-            verbose(`Optimized search failed, falling back to original: ${error}`);
-        }
-        // If the optimized version fails, we would fall back to the original
-        // For now, we'll just return empty results
-        warn(`Search failed: ${error instanceof Error ? error.message : String(error)}`);
-        return [];
+    } catch (searchError) {
+        error(
+            `Search failed: ${searchError instanceof Error ? searchError.message : String(searchError)}`
+        );
+        throw searchError;
     }
 }
 
+// Formatting functions for search results
 export function formatResults(results: SearchResult[], verbose: boolean): void {
     if (results.length === 0) {
         warn("No packages found.");
@@ -228,13 +214,4 @@ export function formatResults(results: SearchResult[], verbose: boolean): void {
     }
 
     log(`\n${blue(`Found ${results.length} package(s).`)}`);
-}
-
-// Cache management utilities
-export async function updateSearchCache(force = false): Promise<void> {
-    await searchCache.updateCache(force);
-}
-
-export function clearSearchCache(): void {
-    searchCache.clearCache();
 }
