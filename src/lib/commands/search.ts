@@ -120,22 +120,25 @@ export async function searchBucketsOptimized(
     } catch (initError) {
         sqliteCache.close();
 
-        // Provide helpful error messages for common issues
-        let errorMessage = `SQLite cache initialization failed: ${initError instanceof Error ? initError.message : String(initError)}`;
-
-        if (errorMessage.includes("Scoop installation not found")) {
-            errorMessage += "\n\nPlease install Scoop first: https://scoop.sh";
-        } else if (errorMessage.includes("SQLite cache is disabled")) {
-            errorMessage += "\n\nEnable SQLite cache with: scoop config use_sqlite_cache true";
-            errorMessage += "\nThen run: scoop update";
+        // Provide simple, helpful error messages
+        if (String(initError).includes("Scoop installation not found")) {
+            error("Scoop installation not found.");
+            error("Please install Scoop first: https://scoop.sh");
+        } else if (String(initError).includes("SQLite cache is not enabled")) {
+            error("SQLite cache is not enabled.");
+            error("Enable it with: scoop config use_sqlite_cache true");
+            error("Then run: scoop update");
         } else if (
-            errorMessage.includes("database not found") ||
-            errorMessage.includes("table is empty")
+            String(initError).includes("database not found") ||
+            String(initError).includes("table is empty")
         ) {
-            errorMessage += "\n\nRun: scoop update";
+            error("Scoop database not found or empty.");
+            error("Run: scoop update");
+        } else {
+            error("Search failed. Please check your Scoop installation.");
         }
 
-        throw new Error(errorMessage);
+        process.exit(1);
     }
 }
 
@@ -151,10 +154,8 @@ export async function searchBuckets(
     try {
         return await searchBucketsOptimized(query, options, isVerbose);
     } catch (searchError) {
-        error(
-            `Search failed: ${searchError instanceof Error ? searchError.message : String(searchError)}`
-        );
-        throw searchError;
+        error("Search failed. Please check your Scoop installation.");
+        process.exit(1);
     }
 }
 
@@ -207,7 +208,7 @@ export function formatResults(results: SearchResult[], verbose: boolean): void {
             }
 
             if (result.binaries && result.binaries.length > 0) {
-                const binariesText = result.binaries.map(bin => green(bin)).join("', '");
+                const binariesText = result.binaries.map(bin => green(bin.trim())).join("', '");
                 log(`        ${dim("-->")} includes '${binariesText}'`);
             }
         }
