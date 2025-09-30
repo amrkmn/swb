@@ -63,13 +63,12 @@ Available commands include:
 - `exec.ts` - Command execution helpers
 - `helpers.ts` - General utility functions
 
-**Search Optimization** (`src/lib/cache.ts`, `src/lib/commands/search-optimized.ts`)
+**Search Optimization** (`src/lib/sqlite.ts`)
 
-- Persistent search cache with 5-minute TTL to solve cold start performance
-- Precomputed search indexes for package names, versions, descriptions, and binaries
-- Background cache warming during CLI startup
-- Cache stored in `~/.swb/cache/search-cache.json` (configurable via `SWB_HOME`)
-- Dramatically faster search performance (~50ms vs 500ms+ originally)
+- SQLite-based search using Scoop's built-in `use_sqlite_cache` feature
+- Requires `scoop config use_sqlite_cache true` to be enabled
+- Fast search performance leveraging Scoop's native database
+- Automatic fallback handling for unconfigured systems
 
 ### Build System
 
@@ -90,28 +89,27 @@ Available commands include:
 
 ## Performance Optimization
 
-**Search Cache Management**
+**SQLite Search System**
 
 ```bash
-swb cache          # Update search cache (default action)
-swb cache --update # Explicitly update cache
-swb cache --force  # Force update even if cache is recent
-swb cache --clear  # Clear search cache
+# Enable Scoop's SQLite cache (required for optimal performance)
+scoop config use_sqlite_cache true
+scoop update   # Rebuild SQLite database
 ```
 
 **Environment Variables**
 
 - `SWB_HOME` - Custom home directory (default: `~`)
   - Data directory becomes `$SWB_HOME/.swb`
-  - Cache files stored in `$SWB_HOME/.swb/cache/`
+  - Used for any local cache files if needed
   - Useful for shared environments or custom storage locations
 
-The search cache significantly improves performance by:
+The search system now leverages Scoop's native SQLite cache for:
 
-- Eliminating cold start delays (2+ minutes → ~50ms)
-- Precomputing searchable indexes from bucket manifests
-- Using persistent storage with smart invalidation
-- Background warming during CLI startup
+- Fast search performance with native database queries
+- No cold start delays (immediate search results)
+- Automatic database maintenance via Scoop's update process
+- Seamless integration with existing Scoop installations
 
 ## Scoop Compatibility
 

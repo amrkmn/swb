@@ -11,6 +11,7 @@ The SWB search cache system is a sophisticated performance optimization that tra
 **Location**: `src/lib/commands/cache.ts`
 
 **Key Properties**:
+
 - `cache: SearchCache | null` - In-memory cache object
 - `cacheFile: string` - Path to persistent cache file
 - `cacheDir: string` - Cache directory path
@@ -19,26 +20,26 @@ The SWB search cache system is a sophisticated performance optimization that tra
 
 ```typescript
 interface SearchCache {
-    version: number;           // Cache format version
-    timestamp: number;         // Last update timestamp
-    buckets: Record<string, BucketCacheEntry>;  // Bucket-specific cache
-    packageIndex: PackageIndexEntry[];          // Searchable package index
+  version: number; // Cache format version
+  timestamp: number; // Last update timestamp
+  buckets: Record<string, BucketCacheEntry>; // Bucket-specific cache
+  packageIndex: PackageIndexEntry[]; // Searchable package index
 }
 
 interface BucketCacheEntry {
-    name: string;             // Bucket name
-    lastModified: number;     // Bucket last modification time
-    manifestCount: number;    // Number of manifests processed
-    packages: PackageIndexEntry[];  // Packages in this bucket
+  name: string; // Bucket name
+  lastModified: number; // Bucket last modification time
+  manifestCount: number; // Number of manifests processed
+  packages: PackageIndexEntry[]; // Packages in this bucket
 }
 
 interface PackageIndexEntry {
-    name: string;            // Package name
-    version: string;         // Latest version
-    description: string;     // Package description
-    bucket: string;          // Source bucket
-    binaries: string[];      // Available executables
-    searchText: string;      // Precomputed search text
+  name: string; // Package name
+  version: string; // Latest version
+  description: string; // Package description
+  bucket: string; // Source bucket
+  binaries: string[]; // Available executables
+  searchText: string; // Precomputed search text
 }
 ```
 
@@ -47,16 +48,19 @@ interface PackageIndexEntry {
 ### Cache Lifecycle
 
 #### `ensureFreshCache()`
+
 - Checks if cache exists and is within TTL (5 minutes default)
 - Loads existing cache or triggers update if stale
 - Returns true if cache was fresh, false if updated
 
 #### `loadCache()`
+
 - Reads cache from `~/.swb/cache/search-cache.json`
 - Validates cache version and structure
 - Handles corruption gracefully with cache rebuild
 
 #### `saveCache()`
+
 - Persists cache to disk with atomic write operations
 - Ensures cache directory exists
 - Handles write errors gracefully
@@ -64,12 +68,14 @@ interface PackageIndexEntry {
 ### Cache Building
 
 #### `updateCache()`
+
 - Scans all available Scoop buckets
 - Calls `scanBucket()` for each bucket found
 - Builds unified package index for fast searching
 - Updates timestamp and saves to disk
 
 #### `scanBucket(bucketPath, bucketName)`
+
 - Reads all manifest files in bucket directory
 - Parses JSON manifests with error handling
 - Extracts package metadata (name, version, description)
@@ -77,16 +83,18 @@ interface PackageIndexEntry {
 - Builds bucket-specific cache entry
 
 #### `extractBinaries(manifest)`
+
 - Analyzes manifest `bin` field for executables
 - Handles various manifest formats:
   - String: single executable
-  - Array: multiple executables  
+  - Array: multiple executables
   - Array of arrays: executable with arguments
 - Returns array of binary names for search indexing
 
 ### Search Operations
 
 #### `search(query)`
+
 - Uses precomputed `searchText` field for fast matching
 - Performs case-insensitive substring search
 - Returns structured `SearchResult` objects
@@ -95,12 +103,14 @@ interface PackageIndexEntry {
 ## Performance Characteristics
 
 ### Cache Building Performance
+
 - **Full Cache Build**: ~2-5 seconds for complete bucket scan
 - **Incremental Updates**: Only changed buckets rescanned
 - **Background Processing**: Cache warming during CLI startup
 - **Memory Efficient**: JSON-based storage, ~1-5MB typical cache size
 
 ### Search Performance
+
 - **Cache Hit**: Sub-10ms for most queries
 - **Cold Start**: ~50ms with cache loading
 - **Memory Usage**: Cache loaded into memory for fastest access
@@ -109,11 +119,13 @@ interface PackageIndexEntry {
 ## Cache Configuration
 
 ### Environment Variables
+
 - `SWB_HOME` - Custom home directory (default: `~`)
   - Cache directory: `$SWB_HOME/.swb/cache/`
   - Cache file: `$SWB_HOME/.swb/cache/search-cache.json`
 
 ### Constants (configurable in code)
+
 - `CACHE_TTL_MS`: 5 minutes (300,000ms) - Cache expiration time
 - `CACHE_VERSION`: 1 - Cache format version for compatibility
 - `MAX_MANIFEST_SIZE`: 10MB - Maximum manifest file size to process
@@ -121,14 +133,16 @@ interface PackageIndexEntry {
 ## Cache Management Commands
 
 ### CLI Interface
+
 ```bash
 swb cache          # Update cache (default action)
-swb cache --update # Explicitly update cache  
+swb cache --update # Explicitly update cache
 swb cache --force  # Force update even if recent
 swb cache --clear  # Clear cache completely
 ```
 
 ### Implementation Functions
+
 - `updateSearchCache()` - Updates cache with progress feedback
 - `clearSearchCache()` - Removes cache file and clears memory
 - Background warming via `warmSearchCacheBackground()` in `src/lib/cli.ts`
@@ -136,12 +150,14 @@ swb cache --clear  # Clear cache completely
 ## Integration with CLI System
 
 ### Background Cache Warming
+
 - **Location**: `src/lib/cli.ts` - `warmSearchCacheBackground()`
 - **Trigger**: Every CLI invocation starts background cache check
 - **Non-blocking**: Cache updates happen asynchronously
 - **Smart**: Only updates if cache is stale or missing
 
 ### Command Integration
+
 - **Search Command**: Primary consumer of cache system
 - **Info Command**: Uses cache for package discovery
 - **List Command**: May leverage cache for installed package metadata
@@ -149,11 +165,13 @@ swb cache --clear  # Clear cache completely
 ## Error Handling
 
 ### Corruption Recovery
+
 - Invalid JSON: Rebuilds cache automatically
 - Version Mismatch: Migrates or rebuilds cache
 - File System Errors: Graceful fallback to live bucket scanning
 
 ### Graceful Degradation
+
 - Missing Cache: Falls back to live bucket scanning
 - Stale Cache: Updates in background while serving stale results
 - Permission Issues: Attempts alternative cache locations
@@ -161,20 +179,23 @@ swb cache --clear  # Clear cache completely
 ## Technical Implementation Details
 
 ### Bucket Discovery
+
 - Scans standard Scoop bucket locations
 - Supports both user (`%USERPROFILE%\scoop\buckets`) and global (`C:\ProgramData\scoop\buckets`) scopes
 - Handles symlinks and junctions properly
 
 ### Manifest Processing
+
 - JSON parsing with comprehensive error handling
 - Extracts standard Scoop manifest fields
 - Handles malformed manifests gracefully
 - Size limits prevent memory exhaustion
 
 ### Search Text Optimization
+
 - Precomputes searchable text combining:
   - Package name
-  - Package description  
+  - Package description
   - Binary names
   - Bucket name
 - Enables fast substring matching without live text processing
@@ -182,6 +203,7 @@ swb cache --clear  # Clear cache completely
 ## Future Enhancement Opportunities
 
 ### Potential Improvements
+
 1. **Incremental Updates**: Track individual manifest modification times
 2. **Compression**: Gzip cache files for reduced disk usage
 3. **Distributed Caching**: Share cache across multiple machines
@@ -189,6 +211,7 @@ swb cache --clear  # Clear cache completely
 5. **Fuzzy Search**: Add typo-tolerant search capabilities
 
 ### Performance Monitoring
+
 - Cache hit rates
 - Search response times
 - Cache build duration

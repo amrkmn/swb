@@ -51,6 +51,7 @@ SWB is a high-performance TypeScript reimplementation of the Scoop Windows packa
   - `clearCache()` - Cache cleanup and invalidation
 
 **Cache Features**:
+
 - **Performance**: ~50ms search times vs 500ms+ cold starts
 - **TTL**: 5-minute cache invalidation (configurable via `CACHE_TTL_MS`)
 - **Storage**: `~/.swb/cache/search-cache.json` (configurable via `SWB_HOME`)
@@ -72,6 +73,7 @@ SWB is a high-performance TypeScript reimplementation of the Scoop Windows packa
 ### Command Implementations
 
 #### Dual Command Structure
+
 Commands exist in both `src/commands/` and `src/lib/commands/` with `src/lib/commands/` being the primary implementations.
 
 #### Available Commands
@@ -96,6 +98,7 @@ Commands exist in both `src/commands/` and `src/lib/commands/` with `src/lib/com
 #### Logging System (`logger.ts`)
 
 **Logger Class** with comprehensive logging capabilities:
+
 - **Levels**: debug, verbose, info, warn, error, success
 - **Features**: Colored output using chalk, log level filtering, header formatting
 - **Methods**: `log()`, `info()`, `warn()`, `error()`, `success()`, `debug()`, `verbose()`, `header()`, `newline()`
@@ -177,25 +180,30 @@ bun run format     # Code formatting with Prettier
 ## Dependencies
 
 ### Runtime Dependencies
+
 - **`chalk`** ^5.6.2 - Terminal coloring and styling
 
 ### Development Dependencies
+
 - **`@types/bun`** latest - Bun runtime type definitions
 - **`@types/node`** ^24.5.2 - Node.js type compatibility
 - **`prettier`** ^3.6.2 - Code formatting
 
 ### Peer Dependencies
+
 - **`typescript`** ^5 - TypeScript compiler support
 
 ## Performance Characteristics
 
 ### Search Performance
+
 - **Cold Start**: ~50ms (was 2+ minutes)
 - **Cache Hit**: Sub-10ms for repeat searches
 - **Memory Usage**: Efficient JSON-based cache storage
 - **Background Updates**: Non-blocking cache warming
 
 ### Build Performance
+
 - **Compilation**: Fast Bun-native compilation
 - **Bundle Size**: Optimized with minification
 - **Startup**: Near-instant CLI startup with cache
@@ -203,22 +211,26 @@ bun run format     # Code formatting with Prettier
 ## Recent Major Improvements
 
 ### 1. Search Cache System (Major)
+
 - Implemented comprehensive SearchCacheManager class
 - Added background cache warming during startup
 - Achieved ~50ms search performance from 2+ minute cold starts
 - Persistent cache with smart TTL management
 
 ### 2. Enhanced Command Architecture
+
 - Dual command structure for flexibility
 - Centralized command registry with metadata
 - Dynamic command loading with caching
 
 ### 3. Advanced Logging System
+
 - Comprehensive Logger class with multiple levels
 - Semantic color coding for better UX
 - Structured logging patterns
 
 ### 4. Build System Improvements
+
 - Custom build script with version injection
 - Optimized compilation process
 - Source map support for debugging
@@ -226,6 +238,7 @@ bun run format     # Code formatting with Prettier
 ## Current Status
 
 The codebase is in excellent condition with:
+
 - High-performance search system with sophisticated caching
 - Complete command implementation (8 commands)
 - Comprehensive logging and error handling

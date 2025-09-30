@@ -42,6 +42,7 @@ bun run build
 ## 🛠️ Available Commands
 
 ### Package Management
+
 ```bash
 swb search <query>     # Search for packages with optimized performance
 swb info <package>     # Get detailed package information
@@ -50,6 +51,7 @@ swb which <command>    # Find executable locations with shim resolution
 ```
 
 ### System Management
+
 ```bash
 swb cache             # Manage search cache for faster performance
 swb cache --update    # Update search cache
@@ -69,6 +71,7 @@ SWB features an advanced search cache system that dramatically improves performa
 - **Precomputed Indexes**: Package names, descriptions, and binaries pre-indexed
 
 ### Cache Management
+
 ```bash
 swb cache          # Update search cache (default action)
 swb cache --update # Explicitly update cache
@@ -127,11 +130,13 @@ bun run format:src  # Format only src/ and scripts/ directories
 ## ⚙️ Configuration
 
 ### Environment Variables
+
 - `SWB_HOME` - Custom home directory (default: `~`)
   - Data directory becomes `$SWB_HOME/.swb`
   - Cache files stored in `$SWB_HOME/.swb/cache/`
 
 ### Cache Configuration
+
 - Cache TTL: 5 minutes (configurable)
 - Cache location: `~/.swb/cache/search-cache.json`
 - Background warming during CLI startup

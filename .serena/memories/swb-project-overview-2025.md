@@ -21,12 +21,14 @@ SWB (Scoop With Bun) is a high-performance TypeScript reimplementation of the Sc
 ### 🚀 Performance Optimizations
 
 **Advanced Search Cache System**:
+
 - **SearchCacheManager**: Sophisticated caching with ~50ms search times (vs 2+ minute cold starts)
 - **Background Cache Warming**: Automatic cache updates during CLI startup
 - **Persistent Storage**: Smart TTL-based cache invalidation (5-minute default)
 - **Precomputed Indexes**: Package names, descriptions, versions, and binaries pre-indexed
 
 **Build System**:
+
 - Custom Bun compilation with version injection
 - Minified production builds
 - Single executable output (`dist/cli.js`)
@@ -34,8 +36,9 @@ SWB (Scoop With Bun) is a high-performance TypeScript reimplementation of the Sc
 ### 🛠️ Complete Command Suite
 
 **8 Available Commands**:
+
 1. **`cache`** - Advanced search cache management (update/clear/status)
-2. **`config`** - Configuration management system  
+2. **`config`** - Configuration management system
 3. **`info`** - Enhanced package information with multi-bucket search
 4. **`list`** - Installed package listing with filtering
 5. **`prefix`** - Package installation path resolution
@@ -46,16 +49,19 @@ SWB (Scoop With Bun) is a high-performance TypeScript reimplementation of the Sc
 ### 🏗️ Architecture Highlights
 
 **Modular Command System**:
+
 - Centralized command registry (`src/lib/commands.ts`)
 - Dynamic command loading with caching
 - Commands in both `src/commands/` and `src/lib/commands/`
 
 **Enhanced Windows Integration**:
+
 - Proper Windows shim resolution (like native Scoop)
 - User and global scope support (`%USERPROFILE%\scoop` and `C:\ProgramData\scoop`)
 - Native Windows command execution using Bun's `$` shell
 
 **Comprehensive Logging**:
+
 - Logger class with multiple verbosity levels
 - Semantic color coding using chalk
 - Structured logging patterns across all commands
@@ -81,7 +87,7 @@ src/
 ├── utils/              # Utility functions
 │   ├── logger.ts       # Logger class with colored output
 │   ├── colors.ts       # Color utilities built on chalk
-│   ├── exec.ts         # Windows-optimized command execution  
+│   ├── exec.ts         # Windows-optimized command execution
 │   ├── commands.ts     # Command detection utilities
 │   ├── helpers.ts      # General utility functions
 │   └── loader.ts       # Module loading utilities
@@ -92,10 +98,11 @@ src/
 ## Development Workflow
 
 ### Available Scripts
+
 ```bash
 # Development
 bun run dev          # Run CLI in development mode
-bun test            # Run tests  
+bun test            # Run tests
 bun run build       # Build for production
 
 # Code Quality
@@ -105,6 +112,7 @@ bun run format:src  # Format only src/ and scripts/ directories
 ```
 
 ### Build Process
+
 - **Tool**: Bun native compiler
 - **Output**: `dist/cli.js` (bundled for Bun runtime)
 - **Features**: Version injection, minification, source maps
@@ -113,11 +121,13 @@ bun run format:src  # Format only src/ and scripts/ directories
 ## Configuration & Environment
 
 ### Environment Variables
+
 - `SWB_HOME` - Custom home directory (default: `~`)
   - Data directory: `$SWB_HOME/.swb`
   - Cache files: `$SWB_HOME/.swb/cache/`
 
 ### Cache Configuration
+
 - **Location**: `~/.swb/cache/search-cache.json`
 - **TTL**: 5 minutes (configurable in code)
 - **Format**: JSON with versioning for compatibility
@@ -126,19 +136,23 @@ bun run format:src  # Format only src/ and scripts/ directories
 ## Dependencies
 
 ### Runtime Dependencies
+
 - **`chalk`** ^5.6.2 - Terminal coloring and styling
 
-### Development Dependencies  
+### Development Dependencies
+
 - **`@types/bun`** latest - Bun runtime type definitions
 - **`@types/node`** ^24.5.2 - Node.js compatibility types
 - **`prettier`** ^3.6.2 - Code formatting
 
 ### Peer Dependencies
+
 - **`typescript`** ^5 - TypeScript compiler support
 
 ## Scoop Compatibility
 
 ### Full Compatibility Features
+
 - **Manifest Support**: Complete Scoop manifest schema support
 - **Directory Structure**: Works with existing Scoop installations
 - **Scope Handling**: User and global scope support
@@ -146,6 +160,7 @@ bun run format:src  # Format only src/ and scripts/ directories
 - **Bucket System**: Multi-bucket search and package discovery
 
 ### Path Resolution
+
 - Current symlinks (`apps\<name>\current`) properly resolved
 - Version-specific paths supported
 - Both user and global installation scopes handled
@@ -153,21 +168,25 @@ bun run format:src  # Format only src/ and scripts/ directories
 ## Recent Major Achievements
 
 ### 1. Search Performance Revolution
+
 - Implemented SearchCacheManager with sophisticated caching
 - Achieved 40x+ performance improvement (2+ minutes → ~50ms)
 - Background cache warming eliminates cold start delays
 
 ### 2. Complete Command System
+
 - All 8 core commands implemented and functional
 - Comprehensive error handling and user feedback
 - Rich CLI experience with colored output
 
 ### 3. Advanced Windows Integration
+
 - Native Windows shim resolution
 - Proper handling of Windows-specific paths and commands
 - Full compatibility with existing Scoop installations
 
 ### 4. Production-Ready Build System
+
 - Custom build process with version injection
 - Optimized compilation for distribution
 - Source map support for debugging
@@ -175,6 +194,7 @@ bun run format:src  # Format only src/ and scripts/ directories
 ## Current Status
 
 **Production Ready**: The SWB project is feature-complete and production-ready with:
+
 - ✅ All core Scoop functionality implemented
 - ✅ Superior performance to original Scoop
 - ✅ Comprehensive error handling and logging
