@@ -1,6 +1,8 @@
 import { error } from "src/utils/logger.ts";
 
 // Enhanced parsed arguments interface
+import yargsParser from "yargs-parser";
+
 export interface ParsedArgs {
     command?: string;
     subcommand?: string;
@@ -41,20 +43,6 @@ export interface OptionDefinition {
 export type CommandHandler = (args: ParsedArgs) => Promise<number> | number;
 
 // Utility function to coerce string values to appropriate types
-function coerceValue(value: string): any {
-    if (value === "true") return true;
-    if (value === "false") return false;
-    if (value === "null") return null;
-    if (value === "undefined") return undefined;
-
-    // Try to parse as number
-    const num = Number(value);
-    if (!isNaN(num) && value.trim() !== "") {
-        return num;
-    }
-
-    return value;
-}
 
 // Enhanced argument parser
 export class ArgumentParser {
@@ -90,99 +78,42 @@ export class ArgumentParser {
             return result;
         }
 
-        // Check for global help/version first
-        if (argv.includes("-h") || argv.includes("--help")) {
-            result.global.help = true;
-        }
-        if (argv.includes("-v") || argv.includes("--version") || argv[0] === "version") {
-            result.global.version = true;
-        }
-        if (argv.includes("--verbose")) {
-            result.global.verbose = true;
-        }
-        if (argv.includes("-g") || argv.includes("--global")) {
-            result.global.global = true;
+        // Use yargs-parser for lightweight argument parsing
+        const parsed = yargsParser(argv, {
+            boolean: ["help", "version", "verbose", "global", "h", "v", "g"],
+            alias: {
+                h: "help",
+                v: "version",
+                g: "global",
+            },
+            configuration: {
+                "parse-numbers": true,
+                "parse-positional-numbers": true,
+                "camel-case-expansion": false,
+                "dot-notation": false,
+            },
+        });
+
+        // Extract command from positional arguments
+        const positionals = parsed._ as string[];
+        if (positionals.length > 0 && this.commands.has(positionals[0])) {
+            result.command = positionals[0];
+            result.args = positionals.slice(1);
+        } else {
+            result.args = positionals;
         }
 
-        // Extract command
-        const firstArg = argv[0];
-        if (firstArg && !firstArg.startsWith("-") && this.commands.has(firstArg)) {
-            result.command = firstArg;
-            argv = argv.slice(1); // Remove command from args
-        }
-
-        // Parse flags and arguments
-        const { flags, positionals } = this.parseFlags(argv);
+        // Extract flags (exclude underscore which contains positional args)
+        const { _, ...flags } = parsed;
         result.flags = flags;
-        result.args = positionals;
 
-        // Update global flags from parsed flags
-        if (flags.help) result.global.help = true;
-        if (flags.version) result.global.version = true;
-        if (flags.verbose) result.global.verbose = true;
-        if (flags.global) result.global.global = true;
+        // Set global flags
+        result.global.help = !!(flags.help || flags.h);
+        result.global.version = !!(flags.version || flags.v || positionals[0] === "version");
+        result.global.verbose = !!flags.verbose;
+        result.global.global = !!(flags.global || flags.g);
 
         return result;
-    }
-
-    // Parse flags and positional arguments
-    private parseFlags(argv: string[]): { flags: Record<string, any>; positionals: string[] } {
-        const flags: Record<string, any> = {};
-        const positionals: string[] = [];
-
-        for (let i = 0; i < argv.length; i++) {
-            const arg = argv[i];
-
-            if (arg === "--") {
-                // Everything after -- is positional
-                positionals.push(...argv.slice(i + 1));
-                break;
-            }
-
-            if (arg.startsWith("--")) {
-                // Long flag
-                const eqIndex = arg.indexOf("=");
-                if (eqIndex > 0) {
-                    // --key=value
-                    const key = arg.slice(2, eqIndex);
-                    const value = arg.slice(eqIndex + 1);
-                    flags[key] = coerceValue(value);
-                } else {
-                    // --key [value]
-                    const key = arg.slice(2);
-                    const nextArg = argv[i + 1];
-                    if (nextArg && !nextArg.startsWith("-")) {
-                        flags[key] = coerceValue(nextArg);
-                        i++; // Skip next arg
-                    } else {
-                        flags[key] = true;
-                    }
-                }
-            } else if (arg.startsWith("-") && arg.length > 1) {
-                // Short flag(s)
-                const shortFlags = arg.slice(1);
-                for (let j = 0; j < shortFlags.length; j++) {
-                    const flag = shortFlags[j];
-                    if (j === shortFlags.length - 1) {
-                        // Last flag in group, might have value
-                        const nextArg = argv[i + 1];
-                        if (nextArg && !nextArg.startsWith("-")) {
-                            flags[flag] = coerceValue(nextArg);
-                            i++; // Skip next arg
-                        } else {
-                            flags[flag] = true;
-                        }
-                    } else {
-                        flags[flag] = true;
-                    }
-                }
-            } else {
-                // Positional argument
-                positionals.push(arg);
-            }
-        }
-
-        return { flags, positionals };
     }
 
     // Execute a command
