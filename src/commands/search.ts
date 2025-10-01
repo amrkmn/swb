@@ -18,10 +18,6 @@ export const definition: CommandDefinition = {
             flags: "-i, --installed",
             description: "Search only installed packages",
         },
-        {
-            flags: "-v, --verbose",
-            description: "Show package descriptions and search progress",
-        },
     ],
     arguments: [
         {
@@ -58,4 +54,4 @@ export const definition: CommandDefinition = {
             return 1;
         }
     },
-};
+};;

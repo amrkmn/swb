@@ -14,12 +14,7 @@ export const definition: CommandDefinition = {
             required: true,
         },
     ],
-    options: [
-        {
-            flags: "-g, --global",
-            description: "Use global scope",
-        },
-    ],
+    options: [],
     handler: async (args: ParsedArgs): Promise<number> => {
         try {
             const app = args.args[0];
@@ -51,4 +46,4 @@ export const definition: CommandDefinition = {
             return 1;
         }
     },
-};
+};;

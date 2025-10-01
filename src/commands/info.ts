@@ -14,12 +14,7 @@ export const definition: CommandDefinition = {
             required: true,
         },
     ],
-    options: [
-        {
-            flags: "--verbose",
-            description: "Show extra diagnostics",
-        },
-    ],
+    options: [],
     handler: async (args: ParsedArgs): Promise<number> => {
         try {
             const appInput = args.args[0];
@@ -51,4 +46,4 @@ export const definition: CommandDefinition = {
             return 1;
         }
     },
-};
+};;
