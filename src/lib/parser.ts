@@ -1,7 +1,8 @@
 import { error } from "src/utils/logger.ts";
+import { formatLineColumns } from "src/utils/helpers.ts";
 
 // Enhanced parsed arguments interface
-import yargsParser from "yargs-parser";
+import mri from "mri";
 
 export interface ParsedArgs {
     command?: string;
@@ -48,9 +49,9 @@ export type CommandHandler = (args: ParsedArgs) => Promise<number> | number;
 export class ArgumentParser {
     private globalOptions: OptionDefinition[] = [
         { flags: "-h, --help", description: "Show help information" },
-        { flags: "-v, --version", description: "Show version number" },
+        { flags: "-V, --version", description: "Show version number" },
         { flags: "-g, --global", description: "Use global scope" },
-        { flags: "--verbose", description: "Enable verbose output" },
+        { flags: "-v, --verbose", description: "Enable verbose output" },
     ];
 
     private commands: Map<string, CommandDefinition> = new Map();
@@ -78,24 +79,19 @@ export class ArgumentParser {
             return result;
         }
 
-        // Use yargs-parser for lightweight argument parsing
-        const parsed = yargsParser(argv, {
-            boolean: ["help", "version", "verbose", "global", "h", "v", "g"],
+        // Use mri for lightweight argument parsing
+        const parsed = mri(argv, {
+            boolean: ["help", "version", "verbose", "global", "h", "V", "g", "v"],
             alias: {
                 h: "help",
-                v: "version",
+                V: "version",
                 g: "global",
-            },
-            configuration: {
-                "parse-numbers": true,
-                "parse-positional-numbers": true,
-                "camel-case-expansion": false,
-                "dot-notation": false,
+                v: "verbose",
             },
         });
 
         // Extract command from positional arguments
-        const positionals = parsed._ as string[];
+        const positionals = parsed._;
         if (positionals.length > 0 && this.commands.has(positionals[0])) {
             result.command = positionals[0];
             result.args = positionals.slice(1);
@@ -109,8 +105,8 @@ export class ArgumentParser {
 
         // Set global flags
         result.global.help = !!(flags.help || flags.h);
-        result.global.version = !!(flags.version || flags.v || positionals[0] === "version");
-        result.global.verbose = !!flags.verbose;
+        result.global.version = !!(flags.version || flags.V || positionals[0] === "version");
+        result.global.verbose = !!(flags.verbose || flags.v);
         result.global.global = !!(flags.global || flags.g);
 
         return result;
@@ -152,14 +148,29 @@ export class ArgumentParser {
             "A JavaScript implementation of Scoop using Bun's runtime",
             "",
             "Options:",
-            ...this.globalOptions.map(opt => `  ${opt.flags.padEnd(20)} ${opt.description}`),
-            "",
-            "Commands:",
         ];
 
-        for (const [name, cmd] of this.commands) {
-            lines.push(`  ${name.padEnd(20)} ${cmd.description}`);
+        // Prepare options table data
+        const optionsData: string[][] = [];
+        for (const opt of this.globalOptions) {
+            optionsData.push([opt.flags, opt.description]);
         }
+
+        // Format options table with 2-space prefix
+        const formattedOptions = formatLineColumns(optionsData, "  ");
+        lines.push(formattedOptions);
+
+        lines.push("", "Commands:");
+
+        // Prepare commands table data
+        const commandsData: string[][] = [];
+        for (const [name, cmd] of this.commands) {
+            commandsData.push([name, cmd.description]);
+        }
+
+        // Format commands table with 2-space prefix
+        const formattedCommands = formatLineColumns(commandsData, "  ");
+        lines.push(formattedCommands);
 
         lines.push("");
         lines.push("Run 'swb <command> --help' for more information on a command.");
@@ -184,25 +195,34 @@ export class ArgumentParser {
 
         if (command.arguments?.length) {
             lines.push("Arguments:");
+            const argumentsData: string[][] = [];
             for (const arg of command.arguments) {
-                lines.push(`  ${arg.name.padEnd(20)} ${arg.description}`);
+                argumentsData.push([arg.name, arg.description]);
             }
+            const formattedArguments = formatLineColumns(argumentsData, "  ");
+            lines.push(formattedArguments);
             lines.push("");
         }
 
         if (command.options?.length) {
             lines.push("Options:");
+            const optionsData: string[][] = [];
             for (const opt of command.options) {
-                lines.push(`  ${opt.flags.padEnd(20)} ${opt.description}`);
+                optionsData.push([opt.flags, opt.description]);
             }
+            const formattedOptions = formatLineColumns(optionsData, "  ");
+            lines.push(formattedOptions);
             lines.push("");
         }
 
         // Add global options
         lines.push("Global Options:");
+        const globalOptionsData: string[][] = [];
         for (const opt of this.globalOptions) {
-            lines.push(`  ${opt.flags.padEnd(20)} ${opt.description}`);
+            globalOptionsData.push([opt.flags, opt.description]);
         }
+        const formattedGlobalOptions = formatLineColumns(globalOptionsData, "  ");
+        lines.push(formattedGlobalOptions);
 
         return lines.join("\n");
     }
