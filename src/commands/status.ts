@@ -69,11 +69,12 @@ export const definition: CommandDefinition = {
                     statuses.push(status);
                 }
             }
-            loader?.stop();
 
             // Display results
             if (json) displayStatusJson(statuses, scoopStatus);
             else displayStatus(statuses, scoopStatus);
+
+            loader?.stop();
 
             return 0;
         } catch (e) {

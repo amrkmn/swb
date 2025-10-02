@@ -3,6 +3,8 @@ import { existsSync, statSync } from "fs";
 import { basename, join } from "path";
 import { type InstalledApp } from "src/lib/apps.ts";
 import { findAllBucketsInScope, findAllManifests, readManifestFields } from "src/lib/manifests.ts";
+import { bold, cyan, green } from "src/utils/colors.ts";
+import { formatLineColumns } from "src/utils/helpers.ts";
 import { error, log, newline, success, warn } from "src/utils/logger.ts";
 
 // Status information for an installed app
@@ -323,53 +325,25 @@ export function displayStatus(
 
     newline(); // Empty line before table
 
-    // Calculate column widths - match Scoop's fixed widths
-    const nameWidth = 22;
-    const installedWidth = 18;
-    const latestWidth = 18;
-    const missingDepsWidth = 22;
+    // Prepare table data with colored header
+    const tableData: string[][] = [
+        ["Name", "Installed", "Latest", "Missing Dependencies", "Info"].map(h => bold(green(h))),
+    ];
 
-    // Display table header with Scoop-style formatting
-    const header =
-        "Name".padEnd(nameWidth) +
-        "Installed".padEnd(installedWidth) +
-        "Latest".padEnd(latestWidth) +
-        "Missing Dependencies".padEnd(missingDepsWidth) +
-        "Info";
-
-    log(header);
-    log("-".repeat(Math.min(header.length, 100))); // Limit separator length
-
-    // Display each app with issues
+    // Add each app with issues as a row
     for (const status of appsWithIssues) {
-        const name =
-            status.name.length > nameWidth - 1
-                ? status.name.substring(0, nameWidth - 3) + ".."
-                : status.name.padEnd(nameWidth);
-
-        const installed =
-            (status.installedVersion || "").length > installedWidth - 1
-                ? (status.installedVersion || "").substring(0, installedWidth - 3) + ".."
-                : (status.installedVersion || "").padEnd(installedWidth);
-
-        const latest =
-            (status.outdated ? status.latestVersion || "" : "").length > latestWidth - 1
-                ? (status.outdated ? status.latestVersion || "" : "").substring(
-                      0,
-                      latestWidth - 3
-                  ) + ".."
-                : (status.outdated ? status.latestVersion || "" : "").padEnd(latestWidth);
-
+        const name = status.name;
+        const installed = status.installedVersion || "";
+        const latest = status.outdated ? status.latestVersion || "" : "";
         const deps = status.missingDeps.join(" | ");
-        const depsFormatted =
-            deps.length > missingDepsWidth - 1
-                ? deps.substring(0, missingDepsWidth - 3) + ".."
-                : deps.padEnd(missingDepsWidth);
-
         const info = status.info.join(", ");
 
-        log(name + installed + latest + depsFormatted + info);
+        tableData.push([name, installed, latest, deps, info]);
     }
+
+    // Format and display the table
+    const formattedTable = formatLineColumns(tableData);
+    log(formattedTable);
 }
 
 export function displayStatusJson(
