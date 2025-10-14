@@ -169,7 +169,7 @@ bun run format:src  # Format only src/ and scripts/ directories
 
 ## 📄 License
 
-MIT
+Apache 2.0
 
 ---
 
