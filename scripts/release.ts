@@ -84,7 +84,7 @@ async function main() {
 
     // Step 6: Publish to npm
     console.log("📤 Publishing to npm...");
-    await $`npm publish --access public`;
+    await $`bun publish --access public`;
 
     console.log("");
     console.log(`✅ Successfully released v${newVersion}!`);
