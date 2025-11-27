@@ -1,10 +1,14 @@
-import { formatRow } from "src/lib/commands/list.ts";
+import {
+    displayAppsList,
+    displayAppsListJson,
+    displayListSummary,
+    getAppsListInfo,
+} from "src/lib/commands/list.ts";
 import { listInstalledApps } from "src/lib/apps.ts";
 import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
 import { warning } from "src/utils/colors.ts";
 import { error, log } from "src/utils/logger.ts";
 
-// New style command definition
 export const definition: CommandDefinition = {
     name: "list",
     description: "List installed apps",
@@ -15,20 +19,35 @@ export const definition: CommandDefinition = {
             required: false,
         },
     ],
+    options: [
+        {
+            flags: "-j, --json",
+            description: "Output in JSON format",
+        },
+    ],
     handler: async (args: ParsedArgs): Promise<number> => {
         try {
             const query = args.args[0];
+            const json = Boolean(args.flags.json || args.flags.j);
             const apps = listInstalledApps(query ?? undefined);
 
             if (apps.length === 0) {
-                log(warning("There aren't any apps installed."));
-                return 1;
+                if (json) {
+                    log("[]");
+                } else {
+                    log(warning("No apps installed."));
+                }
+                return 0;
             }
 
-            for (const a of apps) {
-                const flags: string[] = [];
-                if (a.scope === "global") flags.push("global");
-                log(formatRow(a.name, a.version || "unknown", flags));
+            // Get extended info for all apps
+            const appsInfo = getAppsListInfo(apps);
+
+            if (json) {
+                displayAppsListJson(appsInfo);
+            } else {
+                displayAppsList(appsInfo);
+                displayListSummary(apps.length, query);
             }
 
             return 0;

@@ -1,9 +1,9 @@
 import { $ } from "bun";
-import { existsSync, statSync } from "fs";
+import { existsSync, readFileSync, statSync } from "fs";
 import { basename, join } from "path";
 import { type InstalledApp } from "src/lib/apps.ts";
 import { findAllBucketsInScope, findAllManifests, readManifestFields } from "src/lib/manifests.ts";
-import { bold, cyan, green } from "src/utils/colors.ts";
+import { bold, green } from "src/utils/colors.ts";
 import { formatLineColumns } from "src/utils/helpers.ts";
 import { error, log, newline, success, warn } from "src/utils/logger.ts";
 
@@ -172,7 +172,10 @@ export function raceForTrue(promises: Promise<boolean>[]): Promise<boolean> {
 }
 
 // Check status internally without external dependencies, running checks in parallel
-export async function checkInternalStatus(local: boolean): Promise<{
+export async function checkInternalStatus(
+    local: boolean,
+    onProgress?: (step: string) => void
+): Promise<{
     scoopOutdated: boolean;
     bucketsOutdated: boolean;
 }> {
@@ -187,9 +190,11 @@ export async function checkInternalStatus(local: boolean): Promise<{
         const scoopRepoPath = getScoopAppPath("scoop", "user");
 
         // Check scoop status
+        onProgress?.("Checking Scoop");
         scoopOutdated = await checkGitRepoStatus(scoopRepoPath);
 
         // Check buckets status
+        onProgress?.("Checking buckets");
         const scopes: ("user" | "global")[] = ["user", "global"];
         const buckets = scopes.flatMap(scope => findAllBucketsInScope(scope));
 
@@ -218,16 +223,33 @@ export function getScoopAppPath(appName: string, scope: "user" | "global"): stri
 }
 
 export function isAppHeld(appName: string): boolean {
-    // Check if app is held in user scope
-    const userHoldFile = join(getScoopAppPath(appName, "user"), "scoop-hold.txt");
-    if (existsSync(userHoldFile)) {
-        return true;
+    // Check if app is held by reading install.json in the current version directory
+    // Scoop stores the hold status as a "hold" property in install.json
+
+    // Check user scope
+    const userInstallJson = join(getScoopAppPath(appName, "user"), "install.json");
+    if (existsSync(userInstallJson)) {
+        try {
+            const content = JSON.parse(readFileSync(userInstallJson, "utf-8"));
+            if (content.hold === true) {
+                return true;
+            }
+        } catch {
+            // Ignore parse errors
+        }
     }
 
-    // Check if app is held in global scope
-    const globalHoldFile = join(getScoopAppPath(appName, "global"), "scoop-hold.txt");
-    if (existsSync(globalHoldFile)) {
-        return true;
+    // Check global scope
+    const globalInstallJson = join(getScoopAppPath(appName, "global"), "install.json");
+    if (existsSync(globalInstallJson)) {
+        try {
+            const content = JSON.parse(readFileSync(globalInstallJson, "utf-8"));
+            if (content.hold === true) {
+                return true;
+            }
+        } catch {
+            // Ignore parse errors
+        }
     }
 
     return false;
@@ -271,12 +293,15 @@ export async function getAppStatus(app: InstalledApp): Promise<AppStatus> {
 }
 
 // Check Scoop installation and bucket status using internal methods
-export async function checkScoopStatus(local: boolean): Promise<{
+export async function checkScoopStatus(
+    local: boolean,
+    onProgress?: (step: string) => void
+): Promise<{
     scoopOutdated: boolean;
     bucketsOutdated: boolean;
 }> {
     try {
-        return await checkInternalStatus(local);
+        return await checkInternalStatus(local, onProgress);
     } catch (e) {
         error("Warning: Could not check status:", e);
         return {
@@ -286,14 +311,14 @@ export async function checkScoopStatus(local: boolean): Promise<{
     }
 }
 
-// Format and display status results
-export function displayStatus(
-    statuses: AppStatus[],
-    scoopStatus: { scoopOutdated: boolean; bucketsOutdated: boolean }
-): void {
+// Display scoop and bucket status
+export function displayScoopStatus(scoopStatus: {
+    scoopOutdated: boolean;
+    bucketsOutdated: boolean;
+}): void {
     const { scoopOutdated, bucketsOutdated } = scoopStatus;
 
-    // Display Scoop status first
+    // Display Scoop status
     if (scoopOutdated) {
         warn("Scoop is out of date. Run 'scoop update' to get the latest version.");
     } else {
@@ -306,8 +331,11 @@ export function displayStatus(
     } else {
         success("All buckets are up to date.");
     }
+}
 
-    // Filter for apps that have updates or issues (excluding held packages unless they have other issues)
+// Display app status results
+export function displayAppStatus(statuses: AppStatus[]): void {
+    // Filter for apps that have updates or issues (including held packages)
     const appsWithIssues = statuses.filter(
         s =>
             s.outdated ||
@@ -315,15 +343,13 @@ export function displayStatus(
             s.deprecated ||
             s.removed ||
             s.missingDeps.length > 0 ||
-            (s.held && (s.failed || s.deprecated || s.removed))
+            s.held
     );
 
     if (appsWithIssues.length === 0) {
         success("All packages are okay and up to date.");
         return;
     }
-
-    newline(); // Empty line before table
 
     // Prepare table data with colored header
     const tableData: string[][] = [
@@ -344,6 +370,16 @@ export function displayStatus(
     // Format and display the table
     const formattedTable = formatLineColumns(tableData);
     log(formattedTable);
+    newline();
+}
+
+// Format and display status results (legacy, combines both)
+export function displayStatus(
+    statuses: AppStatus[],
+    scoopStatus: { scoopOutdated: boolean; bucketsOutdated: boolean }
+): void {
+    displayScoopStatus(scoopStatus);
+    displayAppStatus(statuses);
 }
 
 export function displayStatusJson(

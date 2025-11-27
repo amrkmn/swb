@@ -1,13 +1,13 @@
 import {
     checkScoopStatus,
-    displayStatus,
+    displayAppStatus,
+    displayScoopStatus,
     displayStatusJson,
-    getAppStatus,
-    type AppStatus,
 } from "src/lib/commands/status.ts";
 import { listInstalledApps } from "src/lib/apps.ts";
+import { parallelStatusCheck, type AppStatusResult } from "src/lib/status/index.ts";
 import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
-import { Loading } from "src/utils/loader.ts";
+import { ProgressBar } from "src/utils/loader.ts";
 import { error, log, warn } from "src/utils/logger.ts";
 
 export const definition: CommandDefinition = {
@@ -27,12 +27,6 @@ export const definition: CommandDefinition = {
         try {
             const local = Boolean(args.flags.local || args.flags.l);
             const json = Boolean(args.flags.json || args.flags.j);
-            let loader: Loading | null = null;
-
-            if (!local && !json) {
-                loader = new Loading("Checking for updates");
-                loader.start();
-            }
 
             // Get all installed apps
             const installedApps = listInstalledApps();
@@ -51,30 +45,49 @@ export const definition: CommandDefinition = {
                         )
                     );
                 } else {
-                    loader?.stop();
                     warn("No packages installed.");
                 }
                 return 0;
             }
 
-            // Check Scoop and bucket status
-            const scoopStatus = await checkScoopStatus(local);
+            // Total steps: 2 (scoop + buckets) + number of apps
+            const totalSteps = 2 + installedApps.length;
 
-            // Get status for each installed app
-            const statuses: AppStatus[] = [];
-            for (const app of installedApps) {
-                const status = await getAppStatus(app);
-                if (status) {
-                    // Filter out null results (like 'scoop' app)
-                    statuses.push(status);
-                }
+            // Set up progress bar (only for non-JSON output)
+            let progressBar: ProgressBar | null = null;
+            if (!json) {
+                progressBar = new ProgressBar(totalSteps, "Checking Scoop");
+                progressBar.start();
             }
 
-            // Display results
-            if (json) displayStatusJson(statuses, scoopStatus);
-            else displayStatus(statuses, scoopStatus);
+            // Check scoop and bucket status first
+            const scoopStatus = await checkScoopStatus(local, step => {
+                progressBar?.setStep(step);
+                if (step === "Checking buckets") {
+                    progressBar?.setProgress(1);
+                }
+            });
 
-            loader?.stop();
+            // Update progress after scoop/bucket checks
+            progressBar?.setProgress(2, "Checking apps");
+
+            // Get status for each installed app using parallel workers
+            const statuses = await parallelStatusCheck(installedApps, {
+                onProgress: (completed, total) => {
+                    // Offset by 2 for the scoop/bucket steps
+                    progressBar?.setProgress(2 + completed);
+                },
+            });
+
+            progressBar?.complete();
+
+            // Display results
+            if (json) {
+                displayStatusJson(statuses, scoopStatus);
+            } else {
+                displayScoopStatus(scoopStatus);
+                displayAppStatus(statuses);
+            }
 
             return 0;
         } catch (e) {

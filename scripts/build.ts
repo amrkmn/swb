@@ -11,7 +11,7 @@ const version = process.env.SWB_VERSION ?? packageJson.version;
 console.log(`Building SWB v${version}...`);
 
 await Bun.build({
-    entrypoints: ["src/cli.ts", "src/lib/search/worker.ts"],
+    entrypoints: ["src/cli.ts", "src/lib/search/worker.ts", "src/lib/status/worker.ts"],
     minify: true,
     outdir: "dist",
     target: "bun",

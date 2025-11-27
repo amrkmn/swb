@@ -41,3 +41,76 @@ export class Loading {
         process.stdout.write("\r\x1b[2K"); // clear leftover dots before final log
     }
 }
+
+
+/**
+ * Progress bar utility for tracking completion
+ * Creates a visual progress bar like: Checking apps [========--------] 8/16
+ */
+export class ProgressBar {
+    private current = 0;
+    private running = false;
+    private currentStep: string;
+    private readonly barWidth = 30;
+
+    constructor(
+        private total: number,
+        private message: string = "Progress"
+    ) {
+        this.currentStep = message;
+    }
+
+    start() {
+        if (this.running) return;
+        this.running = true;
+        this.render();
+    }
+
+    increment(amount = 1) {
+        this.current = Math.min(this.current + amount, this.total);
+        if (this.running) {
+            this.render();
+        }
+    }
+
+    setProgress(current: number, step?: string) {
+        this.current = Math.min(current, this.total);
+        if (step) {
+            this.currentStep = step;
+        }
+        if (this.running) {
+            this.render();
+        }
+    }
+
+    setStep(step: string) {
+        this.currentStep = step;
+        if (this.running) {
+            this.render();
+        }
+    }
+
+    private render() {
+        const percent = this.total > 0 ? this.current / this.total : 0;
+        const filled = Math.round(percent * this.barWidth);
+        const empty = this.barWidth - filled;
+
+        const filledBar = "=".repeat(filled);
+        const emptyBar = "-".repeat(empty);
+        const bar = `[${filledBar}${emptyBar}]`;
+
+        const counter = `${this.current}/${this.total}`;
+        process.stdout.write(`\r\x1b[2K${this.currentStep} ${bar} ${counter}`);
+    }
+
+    stop() {
+        this.running = false;
+        process.stdout.write("\r\x1b[2K");
+    }
+
+    complete() {
+        this.current = this.total;
+        this.render();
+        this.stop();
+    }
+}
