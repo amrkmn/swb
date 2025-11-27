@@ -5,15 +5,8 @@ await $`rm -rf dist`;
 const packageJsonFile = Bun.file("package.json");
 const packageJson = await packageJsonFile.json();
 
-const version = process.env.SWB_VERSION ?? `${Date.now()}-dev`;
-
-if (process.env.SWB_VERSION && process.env.SWB_VERSION !== packageJson.version) {
-    console.log(
-        `Updating package.json version from ${packageJson.version} to ${process.env.SWB_VERSION}`
-    );
-    packageJson.version = process.env.SWB_VERSION;
-    await Bun.write("package.json", JSON.stringify(packageJson, null, 4) + "\n");
-}
+// Use SWB_VERSION env var if set, otherwise use package.json version
+const version = process.env.SWB_VERSION ?? packageJson.version;
 
 console.log(`Building SWB v${version}...`);
 
