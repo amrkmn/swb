@@ -4,25 +4,6 @@
 import { exec$ } from "./exec.ts";
 
 /**
- * Check if a command exists and is executable.
- *
- * @example
- * ```typescript
- * if (await commandExists("git")) {
- *   console.log("Git is available");
- * }
- * ```
- */
-export async function commandExists(command: string): Promise<boolean> {
-    try {
-        const result = await exec$`where.exe ${command}`;
-        return result.success && result.stdout.trim().length > 0;
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Get the full path to an executable command.
  * Returns null if the command is not found.
  */

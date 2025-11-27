@@ -1,13 +1,13 @@
 /**
- * SQLite-only search implementation using Scoop's built-in database.
- * Requires use_sqlite_cache to be enabled in Scoop configuration.
+ * Parallel worker search implementation.
+ * Uses multi-worker parallel search for fast performance.
  */
 
 import { listInstalledApps } from "src/lib/apps.ts";
 import { findInstalledManifest } from "src/lib/manifests.ts";
-import { ScoopSQLiteCache } from "src/lib/sqlite";
+import { parallelSearch } from "src/lib/search";
 import { blue, bold, cyan, dim, green, yellow } from "src/utils/colors.ts";
-import { error, log, verbose, warn } from "src/utils/logger.ts";
+import { log, verbose, warn } from "src/utils/logger.ts";
 
 export interface SearchResult {
     name: string;
@@ -19,148 +19,99 @@ export interface SearchResult {
     isInstalled: boolean;
 }
 
-export async function searchBucketsOptimized(
-    query: string,
-    options: {
-        caseSensitive?: boolean;
-        bucket?: string;
-        installedOnly?: boolean;
-    },
-    isVerbose: boolean = false
-): Promise<SearchResult[]> {
-    const searchStartTime = performance.now();
+/**
+ * Mark results with installation status
+ */
+function markInstalledApps(results: SearchResult[]): SearchResult[] {
+    const installedApps = listInstalledApps();
+    const installedMap = new Map<string, { bucket?: string; scope: string }>();
 
-    if (isVerbose) {
-        verbose(`Starting SQLite search for: "${query}"`);
-        if (options.bucket) {
-            verbose(`Searching in bucket: ${options.bucket}`);
-        }
-        if (options.installedOnly) {
-            verbose(`Searching only installed packages`);
-        }
-        if (options.caseSensitive) {
-            verbose(`Using case-sensitive search`);
-        }
+    for (const app of installedApps) {
+        const manifest = findInstalledManifest(app.name);
+        installedMap.set(app.name.toLowerCase(), {
+            bucket: manifest?.bucket,
+            scope: app.scope,
+        });
     }
 
-    // Initialize SQLite cache - this is now required
-    const sqliteCache = new ScoopSQLiteCache();
-
-    try {
-        await sqliteCache.initialize();
-
-        if (isVerbose) {
-            verbose("Using Scoop's SQLite cache for search");
-        }
-
-        const sqliteStartTime = performance.now();
-        let sqliteResults = await sqliteCache.search(query);
-        const sqliteTime = Math.round(performance.now() - sqliteStartTime);
-
-        if (isVerbose) {
-            verbose(
-                `SQLite search completed in ${sqliteTime}ms, found ${sqliteResults.length} matches`
-            );
-        }
-
-        // Apply bucket filter if specified
-        if (options.bucket) {
-            sqliteResults = sqliteResults.filter(
-                result => result.bucket.toLowerCase() === options.bucket!.toLowerCase()
-            );
-        }
-
-        // Get installed apps info for marking installation status
-        const installedStartTime = performance.now();
-        const installedApps = listInstalledApps();
-        const installedMap = new Map<string, { bucket?: string; scope: string }>();
-
-        for (const app of installedApps) {
-            const manifest = findInstalledManifest(app.name);
-            installedMap.set(app.name.toLowerCase(), {
-                bucket: manifest?.bucket,
-                scope: app.scope,
-            });
-        }
-
-        const installedTime = Math.round(performance.now() - installedStartTime);
-        if (isVerbose) {
-            verbose(`Loaded ${installedApps.length} installed apps in ${installedTime}ms`);
-        }
-
-        // Update installation status and scope for results
-        const results = sqliteResults
-            .map(result => {
-                const installed = installedMap.get(result.name.toLowerCase());
-                return {
-                    ...result,
-                    isInstalled: !!installed,
-                    scope: installed?.scope === "global" ? ("global" as const) : ("user" as const),
-                };
-            })
-            .filter(result => {
-                // Apply installed filter
-                if (options.installedOnly && !result.isInstalled) {
-                    return false;
-                }
-                return true;
-            });
-
-        const totalTime = Math.round(performance.now() - searchStartTime);
-        if (isVerbose) {
-            verbose(`Total SQLite search time: ${totalTime}ms`);
-            verbose(`Breakdown - SQLite: ${sqliteTime}ms, Installed: ${installedTime}ms`);
-        }
-
-        // Clean up
-        sqliteCache.close();
-
-        // Limit results to prevent excessive output
-        return results.slice(0, 100);
-    } catch (initError) {
-        sqliteCache.close();
-
-        // Provide simple, helpful error messages
-        if (String(initError).includes("Scoop installation not found")) {
-            error("Scoop installation not found.");
-            error("Please install Scoop first: https://scoop.sh");
-        } else if (String(initError).includes("SQLite cache is not enabled")) {
-            error("SQLite cache is not enabled.");
-            error("Enable it with: scoop config use_sqlite_cache true");
-            error("Then run: scoop update");
-        } else if (
-            String(initError).includes("database not found") ||
-            String(initError).includes("table is empty")
-        ) {
-            error("Scoop database not found or empty.");
-            error("Run: scoop update");
-        } else {
-            error("Search failed. Please check your Scoop installation.");
-        }
-
-        process.exit(1);
-    }
+    return results.map(result => {
+        const installed = installedMap.get(result.name.toLowerCase());
+        return {
+            ...result,
+            isInstalled: !!installed,
+            scope: installed?.scope === "global" ? ("global" as const) : result.scope,
+        };
+    });
 }
 
+/**
+ * Search buckets using parallel workers
+ */
 export async function searchBuckets(
     query: string,
     options: {
         caseSensitive?: boolean;
         bucket?: string;
         installedOnly?: boolean;
-    },
+    } = {},
     isVerbose: boolean = false
 ): Promise<SearchResult[]> {
-    try {
-        return await searchBucketsOptimized(query, options, isVerbose);
-    } catch (searchError) {
-        error("Search failed. Please check your Scoop installation.");
-        process.exit(1);
+    const startTime = performance.now();
+
+    if (isVerbose) {
+        verbose(`Starting parallel worker search for: "${query}"`);
     }
+
+    const workerResults = await parallelSearch(query, {
+        caseSensitive: options.caseSensitive,
+        bucket: options.bucket,
+    });
+
+    const searchTime = Math.round(performance.now() - startTime);
+
+    if (isVerbose) {
+        verbose(
+            `Parallel search completed in ${searchTime}ms, found ${workerResults.length} matches`
+        );
+    }
+
+    // Convert to SearchResult format
+    let results: SearchResult[] = workerResults.map(r => ({
+        name: r.name,
+        version: r.version,
+        bucket: r.bucket,
+        scope: r.scope,
+        description: r.description,
+        binaries: r.binaries,
+        isInstalled: false,
+    }));
+
+    // Mark installed apps
+    const installedStartTime = performance.now();
+    results = markInstalledApps(results);
+    const installedTime = Math.round(performance.now() - installedStartTime);
+
+    if (isVerbose) {
+        verbose(`Marked installed apps in ${installedTime}ms`);
+    }
+
+    // Filter installed only
+    if (options.installedOnly) {
+        results = results.filter(r => r.isInstalled);
+    }
+
+    return results.slice(0, 100);
 }
 
-// Formatting functions for search results
-export function formatResults(results: SearchResult[], verbose: boolean): void {
+/**
+ * Alias for backwards compatibility
+ */
+export const searchBucketsOptimized = searchBuckets;
+
+/**
+ * Format and display search results
+ */
+export function formatResults(results: SearchResult[], isVerbose: boolean): void {
     if (results.length === 0) {
         warn("No packages found.");
         return;
@@ -203,11 +154,11 @@ export function formatResults(results: SearchResult[], verbose: boolean): void {
 
             log(line);
 
-            if (verbose && result.description) {
+            if (isVerbose && result.description) {
                 log(`        ${dim(result.description)}`);
             }
 
-            if (result.binaries && result.binaries.length > 0) {
+            if (isVerbose && result.binaries && result.binaries.length > 0) {
                 const binariesText = result.binaries.map(bin => green(bin.trim())).join("', '");
                 log(`        ${dim("-->")} includes '${binariesText}'`);
             }

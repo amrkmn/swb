@@ -17,8 +17,8 @@ if (process.env.SWB_VERSION && process.env.SWB_VERSION !== packageJson.version) 
 
 console.log(`Building SWB v${version}...`);
 
-Bun.build({
-    entrypoints: ["src/cli.ts"],
+await Bun.build({
+    entrypoints: ["src/cli.ts", "src/lib/search/worker.ts"],
     minify: true,
     outdir: "dist",
     target: "bun",

@@ -54,4 +54,4 @@ export const definition: CommandDefinition = {
             return 1;
         }
     },
-};;
+};
