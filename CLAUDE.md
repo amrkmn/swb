@@ -11,13 +11,19 @@ SWB (Scoop With Bun) is a TypeScript/JavaScript reimplementation of the Scoop Wi
 ```bash
 # Development
 bun run dev          # Run CLI in development mode
-bun test            # Run tests
-bun run build       # Build for production (outputs to dist/cli.js)
+bun test             # Run tests
+bun run build        # Build for production (outputs to dist/cli.js)
 
 # Code formatting
-bun run format      # Format all files with Prettier
+bun run format       # Format all files with Prettier
 bun run format:check # Check formatting without changes
-bun run format:src  # Format only src/ and scripts/ directories
+bun run format:src   # Format only src/ and scripts/ directories
+
+# Releasing
+bun run release patch    # Bump patch version (0.0.x), build, tag, push, publish
+bun run release minor    # Bump minor version (0.x.0)
+bun run release major    # Bump major version (x.0.0)
+bun run release patch --dry-run  # Preview without making changes
 ```
 
 ## Architecture Overview
@@ -62,6 +68,12 @@ Available commands include:
 - `colors.ts` - Color utility functions
 - `exec.ts` - Command execution helpers
 - `helpers.ts` - General utility functions
+- `loader.ts` - Loading spinner and ProgressBar utilities for CLI feedback
+
+**Parallel Workers** (`src/lib/status/`, `src/lib/search/`)
+
+- Web Workers for parallel processing of status checks and search operations
+- Worker entrypoints must be added to build.ts entrypoints array
 
 **Search Optimization** (`src/lib/sqlite.ts`)
 
@@ -77,6 +89,7 @@ Available commands include:
 - Minification enabled for production
 - Version injection via `SWB_VERSION` environment variable
 - Build script: `scripts/build.ts`
+- Release script: `scripts/release.ts` - handles version bump, build, git tag, and npm publish
 
 ### Code Conventions
 
