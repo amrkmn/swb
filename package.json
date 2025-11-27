@@ -11,6 +11,7 @@
     "scripts": {
         "dev": "bun run src/cli.ts",
         "build": "bun run scripts/build.ts",
+        "release": "bun run scripts/release.ts",
         "test": "bun test",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
