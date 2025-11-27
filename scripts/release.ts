@@ -64,9 +64,9 @@ async function main() {
     packageJson.version = newVersion;
     await Bun.write(packageJsonFile, JSON.stringify(packageJson, null, 4) + "\n");
 
-    // Step 2: Build the project
+    // Step 2: Build the project with SWB_VERSION set
     console.log("🔨 Building...");
-    await $`bun run build`;
+    await $`SWB_VERSION=${newVersion} bun run build`;
 
     // Step 3: Commit version bump
     console.log("📌 Committing version bump...");
