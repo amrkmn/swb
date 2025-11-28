@@ -1,7 +1,7 @@
 import { blue, bold, cyan, dim, gray, green, red, yellow } from "./colors";
 
 /**
- * Centralized logging utility with colored output using chalk
+ * Centralized logging utility with colored output
  * Avoids console.log and integrates all color functionality
  */
 export class Logger {
@@ -9,14 +9,14 @@ export class Logger {
      * Write to stdout directly
      */
     private static write(message: string): void {
-        process.stdout.write(message + "\n");
+        process.stdout.write(`${message}\n`);
     }
 
     /**
      * Write to stderr directly
      */
     private static writeError(message: string): void {
-        process.stderr.write(message + "\n");
+        process.stderr.write(`${message}\n`);
     }
 
     /**
@@ -59,7 +59,7 @@ export class Logger {
      */
     static debug(...messages: any[]): void {
         if (process.env.DEBUG) {
-            this.write(gray("DEBUG:") + " " + messages.join(" "));
+            this.write(`${gray("DEBUG:")} ${messages.join(" ")}`);
         }
     }
 
