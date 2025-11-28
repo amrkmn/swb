@@ -54,7 +54,8 @@ export async function searchBuckets(
         bucket?: string;
         installedOnly?: boolean;
     } = {},
-    isVerbose: boolean = false
+    isVerbose: boolean = false,
+    onProgress?: (completed: number, total: number, bucketName: string) => void
 ): Promise<SearchResult[]> {
     const startTime = performance.now();
 
@@ -62,10 +63,14 @@ export async function searchBuckets(
         verbose(`Starting parallel worker search for: "${query}"`);
     }
 
-    const workerResults = await parallelSearch(query, {
-        caseSensitive: options.caseSensitive,
-        bucket: options.bucket,
-    });
+    const workerResults = await parallelSearch(
+        query,
+        {
+            caseSensitive: options.caseSensitive,
+            bucket: options.bucket,
+        },
+        onProgress
+    );
 
     const searchTime = Math.round(performance.now() - startTime);
 

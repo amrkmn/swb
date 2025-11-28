@@ -93,7 +93,8 @@ export async function parallelSearch(
     options: {
         caseSensitive?: boolean;
         bucket?: string;
-    } = {}
+    } = {},
+    onProgress?: (completed: number, total: number, bucketName: string) => void
 ): Promise<ParallelSearchResult[]> {
     const buckets = findAllBuckets();
 
@@ -106,6 +107,9 @@ export async function parallelSearch(
         return [];
     }
 
+    const total = targetBuckets.length;
+    let completed = 0;
+
     // Spawn workers for each bucket
     const workerPromises = targetBuckets.map(bucket => {
         return new Promise<{ bucket: BucketInfo; results: WorkerSearchResult[] }>(
@@ -114,12 +118,16 @@ export async function parallelSearch(
 
                 const timeout = setTimeout(() => {
                     worker.terminate();
+                    completed++;
+                    onProgress?.(completed, total, bucket.name);
                     resolve({ bucket, results: [] });
-                }, 10000); // 10 second timeout
+                }, 60000); // 60 second timeout for cold starts
 
                 worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
                     clearTimeout(timeout);
                     worker.terminate();
+                    completed++;
+                    onProgress?.(completed, total, bucket.name);
 
                     if (event.data.type === "error") {
                         resolve({ bucket, results: [] });
@@ -131,6 +139,8 @@ export async function parallelSearch(
                 worker.onerror = () => {
                     clearTimeout(timeout);
                     worker.terminate();
+                    completed++;
+                    onProgress?.(completed, total, bucket.name);
                     resolve({ bucket, results: [] });
                 };
 
