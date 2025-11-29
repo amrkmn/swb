@@ -14,11 +14,13 @@ export interface InstalledApp {
     appDir: string; // <root>\apps\<name>
     currentPath: string | null; // resolved full path of "current" target, if any
     version: string | null; // basename of current target, if resolvable
+    bucket?: string; // bucket name from install.json
 }
 
 export function readCurrentTarget(appDir: string): {
     target: string | null;
     version: string | null;
+    bucket?: string;
 } {
     const cur = path.join(appDir, "current");
     if (!existsSync(cur)) return { target: null, version: null };
@@ -26,7 +28,19 @@ export function readCurrentTarget(appDir: string): {
         // On Windows, current is a junction/symlink to the version dir.
         const resolved = realpathSync(cur);
         const version = path.basename(resolved);
-        return { target: resolved, version };
+        
+        let bucket: string | undefined;
+        const installJson = path.join(resolved, "install.json");
+        if (existsSync(installJson)) {
+            try {
+                const content = JSON.parse(require("fs").readFileSync(installJson, "utf8"));
+                bucket = content.bucket;
+            } catch {
+                // Ignore parse errors
+            }
+        }
+
+        return { target: resolved, version, bucket };
     } catch {
         // Not a link or resolution failed
         return { target: null, version: null };
@@ -92,13 +106,14 @@ export function listInstalledApps(filter?: string): InstalledApp[] {
         for (const name of names) {
             if (normFilter && !name.toLowerCase().includes(normFilter)) continue;
             const appDir = path.join(appsDir, name);
-            const { target, version } = readCurrentTarget(appDir);
+            const { target, version, bucket } = readCurrentTarget(appDir);
             results.push({
                 name,
                 scope: sp.scope,
                 appDir,
                 currentPath: target,
                 version,
+                bucket,
             });
         }
     }

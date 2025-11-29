@@ -13,6 +13,7 @@ export interface InstalledAppInfo {
     version: string;
     scope: "user" | "global";
     currentPath: string;
+    bucket?: string;
 }
 
 export interface BucketLocation {
@@ -150,13 +151,42 @@ function checkFailed(app: InstalledAppInfo): boolean {
  */
 function findLatestVersion(
     appName: string,
-    buckets: BucketLocation[]
+    buckets: BucketLocation[],
+    installedBucket?: string
 ): { version: string | null; deprecated: boolean; removed: boolean } {
     let latestVersion: string | null = null;
     let highestVersionNumber = [0, 0, 0, 0];
     let deprecated = false;
     let foundInAnyBucket = false;
 
+    // If we know the bucket, check it first
+    if (installedBucket) {
+        const bucket = buckets.find(b => b.name === installedBucket);
+        if (bucket) {
+            const filePath = join(bucket.bucketDir, `${appName}.json`);
+            if (existsSync(filePath)) {
+                foundInAnyBucket = true;
+                if (bucket.bucketDir.includes("deprecated")) {
+                    deprecated = true;
+                }
+                try {
+                    const content = readFileSync(filePath, "utf8");
+                    const manifest = JSON.parse(content);
+                    if (manifest.version) {
+                        return {
+                            version: manifest.version,
+                            deprecated,
+                            removed: false
+                        };
+                    }
+                } catch {
+                    // Skip invalid manifests
+                }
+            }
+        }
+    }
+
+    // Fallback: check all buckets if not found in installed bucket or bucket unknown
     for (const bucket of buckets) {
         const filePath = join(bucket.bucketDir, `${appName}.json`);
 
@@ -205,7 +235,11 @@ function checkAppStatus(
         return null;
     }
 
-    const { version: latestVersion, deprecated, removed } = findLatestVersion(app.name, buckets);
+    const { version: latestVersion, deprecated, removed } = findLatestVersion(
+        app.name,
+        buckets,
+        app.bucket
+    );
     const failed = checkFailed(app);
     const held = checkHeld(app.name, scoopPath, globalScoopPath);
     const outdated = isOutdated(app.version, latestVersion);

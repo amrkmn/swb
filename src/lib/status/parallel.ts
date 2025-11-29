@@ -91,6 +91,7 @@ function toWorkerApp(app: InstalledApp): InstalledAppInfo {
         version: app.version || "",
         scope: app.scope,
         currentPath: app.currentPath || "",
+        bucket: app.bucket,
     };
 }
 
