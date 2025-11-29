@@ -62,26 +62,6 @@ function extractBinaries(bin: any): string[] {
 }
 
 /**
- * Check if a manifest matches the search query
- */
-function matchesQuery(name: string, manifest: any, query: string, caseSensitive: boolean): boolean {
-    const q = caseSensitive ? query : query.toLowerCase();
-    const nameLower = caseSensitive ? name : name.toLowerCase();
-
-    // Match against name
-    if (nameLower.includes(q)) return true;
-
-    // Match against binaries
-    const binaries = extractBinaries(manifest.bin);
-    for (const bin of binaries) {
-        const binLower = caseSensitive ? bin : bin.toLowerCase();
-        if (binLower.includes(q)) return true;
-    }
-
-    return false;
-}
-
-/**
  * Scan a bucket directory for matching manifests
  */
 function scanBucket(
@@ -94,26 +74,31 @@ function scanBucket(
 
     try {
         const files = readdirSync(bucketDir, { withFileTypes: true });
+        const q = caseSensitive ? query : query.toLowerCase();
 
         for (const file of files) {
             if (!file.isFile() || !file.name.endsWith(".json")) continue;
 
             const appName = file.name.slice(0, -5); // Remove .json
+            const nameLower = caseSensitive ? appName : appName.toLowerCase();
+
+            // Optimization: Check if name matches before reading file
+            // This skips reading/parsing thousands of files that don't match
+            if (!nameLower.includes(q)) continue;
+
             const filePath = join(bucketDir, file.name);
 
             try {
                 const content = readFileSync(filePath, "utf8");
                 const manifest = JSON.parse(content);
 
-                if (matchesQuery(appName, manifest, query, caseSensitive)) {
-                    results.push({
-                        name: appName,
-                        version: manifest.version || "",
-                        description: manifest.description || "",
-                        bucket: bucketName,
-                        binaries: extractBinaries(manifest.bin),
-                    });
-                }
+                results.push({
+                    name: appName,
+                    version: manifest.version || "",
+                    description: manifest.description || "",
+                    bucket: bucketName,
+                    binaries: extractBinaries(manifest.bin),
+                });
             } catch {
                 // Skip invalid manifests
             }
