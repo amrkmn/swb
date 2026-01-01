@@ -120,11 +120,11 @@ When adding new Web Workers, update the entrypoints array in `scripts/build.ts`.
 ### Build & Bundle
 
 - Uses Bun's native bundler (`Bun.build`)
-- Workers are built as separate files: `dist/lib/search/worker.js` and `dist/lib/status/worker.js`
+- Workers are embedded in the executable using Bun's virtual filesystem (`compile: true`)
 - Version injected via `SWB_VERSION` environment variable during build
-- Production build outputs minified code to `dist/cli.js`
+- Production build outputs standalone executable to `dist/swb.exe`
 - Always run `bun run build` before committing changes that affect the binary
-- Worker URL resolution uses `import.meta.url` to locate worker files relative to the main bundle
+- Worker URL resolution uses centralized `getWorkerUrl()` helper
 
 ### Testing
 

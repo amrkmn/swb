@@ -55,7 +55,8 @@ async function main() {
         console.log("  3. Commit version bump");
         console.log(`  4. Create git tag v${newVersion}`);
         console.log("  5. Push to remote");
-        console.log("  6. Publish to npm");
+        console.log("  6. Create release archive (zip)");
+        console.log("  7. Create GitHub release");
         process.exit(0);
     }
 
@@ -82,9 +83,14 @@ async function main() {
     await $`git push`;
     await $`git push --tags`;
 
-    // Step 6: Publish to npm
-    console.log("📤 Publishing to npm...");
-    await $`bun publish --access public`;
+    // Step 6: Create release zip
+    console.log("📦 Creating release archive...");
+    const releaseZip = `swb-v${newVersion}-windows-x64.zip`;
+    await $`powershell Compress-Archive -Path ./dist/swb.exe,./README.md,./LICENSE -DestinationPath ./dist/${releaseZip} -Force`;
+
+    // Step 7: Create GitHub release
+    console.log("🚀 Creating GitHub release...");
+    await $`gh release create ${"v" + newVersion} ./dist/${releaseZip} --title ${"v" + newVersion} --generate-notes`;
 
     console.log("");
     console.log(`✅ Successfully released v${newVersion}!`);
