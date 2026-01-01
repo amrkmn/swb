@@ -42,7 +42,6 @@ export class Loading {
     }
 }
 
-
 /**
  * Progress bar utility for tracking completion
  * Creates a visual progress bar like: Checking apps [========--------] 8/16
