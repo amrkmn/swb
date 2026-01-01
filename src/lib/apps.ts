@@ -28,7 +28,7 @@ export function readCurrentTarget(appDir: string): {
         // On Windows, current is a junction/symlink to the version dir.
         const resolved = realpathSync(cur);
         const version = path.basename(resolved);
-        
+
         let bucket: string | undefined;
         const installJson = path.join(resolved, "install.json");
         if (existsSync(installJson)) {

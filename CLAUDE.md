@@ -93,6 +93,7 @@ Available commands include:
 - Compile-time constant `SWB_WORKER_PATH` defined during build
 
 **Adding New Workers:**
+
 1. Create worker file in `src/lib/workers/<name>.ts`
 2. Add worker entrypoint to `scripts/build.ts` entrypoints array
 3. Use `getWorkerUrl("<name>")` from `src/lib/workers/index.ts` to resolve worker path

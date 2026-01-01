@@ -176,7 +176,7 @@ function findLatestVersion(
                         return {
                             version: manifest.version,
                             deprecated,
-                            removed: false
+                            removed: false,
                         };
                     }
                 } catch {
@@ -235,11 +235,11 @@ function checkAppStatus(
         return null;
     }
 
-    const { version: latestVersion, deprecated, removed } = findLatestVersion(
-        app.name,
-        buckets,
-        app.bucket
-    );
+    const {
+        version: latestVersion,
+        deprecated,
+        removed,
+    } = findLatestVersion(app.name, buckets, app.bucket);
     const failed = checkFailed(app);
     const held = checkHeld(app.name, scoopPath, globalScoopPath);
     const outdated = isOutdated(app.version, latestVersion);
