@@ -10,16 +10,18 @@ SWB is a TypeScript reimplementation of the Scoop Windows package manager, built
 
 ```bash
 # Development
-bun run dev          # Run CLI in development mode
-bun test             # Run all tests
-bun test <file>      # Run a single test file
+bun run dev              # Run CLI in development mode
+bun run dev search foo   # Test a specific command
+bun test                 # Run all tests
+bun test <file>          # Run a single test file
+bun test --watch         # Run tests in watch mode
 
 # Build & Release
-bun run build        # Build for production (outputs to dist/cli.js)
-bun run release patch    # Bump patch version, build, tag, push, publish
-bun run release minor    # Bump minor version
-bun run release major    # Bump major version
-bun run release patch --dry-run  # Preview without changes
+bun run build                    # Build standalone executable (dist/swb.exe)
+bun run release patch            # Bump patch, build, tag, push, create GitHub release
+bun run release minor            # Bump minor version
+bun run release major            # Bump major version
+bun run release patch --dry-run  # Preview release steps without changes
 
 # Code Formatting
 bun run format       # Format all files with Prettier
@@ -33,7 +35,7 @@ bun run format:src   # Format only src/ and scripts/
 
 - **Target**: ES2022 with strict mode enabled
 - **Module**: ESNext with Bundler resolution
-- **No emit**: TypeScript is used for type checking only; Bun handles compilation
+- **No emit**: TypeScript is for type checking only; Bun handles compilation
 
 ### Formatting (Prettier)
 
@@ -42,23 +44,32 @@ bun run format:src   # Format only src/ and scripts/
 - Semicolons: required
 - Quotes: double quotes
 - Trailing commas: ES5 compatible
-- Arrow function parens: avoid when possible
+- Arrow function parens: avoid when possible (`x => x` not `(x) => x`)
 - Line endings: LF (Unix-style)
 
 ### Imports
 
-- Use `src/` prefix for internal modules: `import { foo } from "src/lib/foo.ts";`
-- External imports: bare module specifiers
-- Group imports: external first, then internal (blank line between)
+```typescript
+// External imports first
+import mri from "mri";
+
+// Internal imports with src/ prefix (blank line between groups)
+import { error, log } from "src/utils/logger.ts";
+import type { CommandDefinition } from "src/lib/parser.ts";
+```
 
 ### Naming Conventions
 
-- **Files**: kebab-case (`my-module.ts`)
-- **Classes**: PascalCase (`class Logger`)
-- **Functions/variables**: camelCase (`const myVariable`, `function myFunction()`)
-- **Interfaces**: PascalCase without "I" prefix (`interface CommandDefinition`)
-- **Constants**: UPPER_SNAKE_CASE for true constants, camelCase otherwise
-- **Private members**: prefix with underscore (`_privateMethod()`)
+| Element         | Style             | Example                       |
+| --------------- | ----------------- | ----------------------------- |
+| Files           | kebab-case        | `my-module.ts`                |
+| Classes         | PascalCase        | `class ArgumentParser`        |
+| Functions       | camelCase         | `function getWorkerUrl()`     |
+| Variables       | camelCase         | `const bucketCount`           |
+| Interfaces      | PascalCase        | `interface CommandDefinition` |
+| Type aliases    | PascalCase        | `type CommandHandler`         |
+| Constants       | UPPER_SNAKE_CASE  | `const DEFAULT_TIMEOUT`       |
+| Private members | underscore prefix | `_privateMethod()`            |
 
 ### TypeScript Types
 
@@ -68,23 +79,59 @@ bun run format:src   # Format only src/ and scripts/
 - Use `Record<K, V>` for map-like objects
 - Use `Array<T>` syntax consistently (not `T[]`)
 
-### Error Handling
+### Error Handling Pattern
+
+```typescript
+handler: async (args: ParsedArgs): Promise<number> => {
+  try {
+    // Command logic here
+    return 0; // Success
+  } catch (err) {
+    error(`Operation failed: ${err instanceof Error ? err.message : String(err)}`);
+    return 1; // Error
+  }
+};
+```
 
 - Commands return `Promise<number>` where 0 = success, 1 = error
 - Always wrap command handlers in try/catch blocks
 - Use `error()` from `src/utils/logger.ts` for user-facing errors
-- Include original error message: `err instanceof Error ? err.message : String(err)`
-- Use custom Error instances with descriptive messages
 - Never log secrets or keys
-- Log important actions with `log()` or `verbose()` from logger
 
-### Code Structure
+## Code Structure
 
-**Entry Point**: `src/cli.ts` delegates to `src/lib/cli.ts`
+### File Organization
 
-**Command Pattern**: Commands follow this structure:
+```
+src/
+  cli.ts              # Entry point (delegates to lib/cli.ts)
+  commands/           # Command definitions (one per file)
+  lib/
+    cli.ts            # Main CLI logic
+    commands.ts       # Command registry
+    parser.ts         # Argument parsing
+    paths.ts          # Windows path utilities
+    apps.ts           # App/manifest scanning
+    workers/          # Web Worker implementations
+      index.ts        # getWorkerUrl() helper
+      search.ts       # Search worker
+      status.ts       # Status worker
+  utils/
+    colors.ts         # ANSI color functions
+    logger.ts         # Logging (log, error, warn, info, etc.)
+    helpers.ts        # General utilities
+    exec.ts           # Command execution
+    loader.ts         # ProgressBar and spinner
+```
+
+### Command Pattern
+
+Commands follow this structure in `src/commands/<name>.ts`:
 
 ```typescript
+import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
+import { error } from "src/utils/logger.ts";
+
 export const definition: CommandDefinition = {
   name: "command-name",
   description: "Brief description",
@@ -97,50 +144,53 @@ export const definition: CommandDefinition = {
 };
 ```
 
-**File Organization**:
+After creating a command, register it in `src/lib/commands.ts`.
 
-- `src/commands/` - Command definitions
-- `src/lib/` - Core functionality and business logic
-- `src/utils/` - Utilities (colors, logger, helpers, exec, loader)
-- `src/lib/status/` and `src/lib/search/` - Web Workers for parallel processing
+### Logging
 
-### Worker Entrypoints
+Use the Logger from `src/utils/logger.ts`:
 
-When adding new Web Workers, update the entrypoints array in `scripts/build.ts`.
+```typescript
+import { log, error, warn, info, success, verbose } from "src/utils/logger.ts";
 
-### CLI Guidelines
+log("Regular message");
+info("Informational (blue)");
+success("Success (green)");
+warn("Warning (yellow)");
+error("Error (red)");
+verbose("Dim text for details");
+```
 
-- Use `bun run dev` for testing CLI changes
-- Commands should be fast; use caching where appropriate
-- Provide helpful error messages
-- Support `--help` and `-h` flags on all commands
-- Use colored output with `src/utils/logger.ts` functions
-- Windows-focused: paths use backslashes, use `process.env.USERPROFILE`
+## Build & Bundle
 
-### Build & Bundle
+- Uses Bun's native bundler (`Bun.build`) with `compile: true`
+- Workers embedded in executable via Bun's virtual filesystem
+- Version injected via `SWB_VERSION` define during build
+- Production output: `dist/swb.exe` (standalone Windows executable)
 
-- Uses Bun's native bundler (`Bun.build`)
-- Workers are embedded in the executable using Bun's virtual filesystem (`compile: true`)
-- Version injected via `SWB_VERSION` environment variable during build
-- Production build outputs standalone executable to `dist/swb.exe`
-- Always run `bun run build` before committing changes that affect the binary
-- Worker URL resolution uses centralized `getWorkerUrl()` helper
+### Adding New Workers
 
-### Testing
+1. Create worker file: `src/lib/workers/<name>.ts`
+2. Add to entrypoints in `scripts/build.ts`
+3. Use `getWorkerUrl("<name>")` from `src/lib/workers/index.ts`
 
-- Tests use Bun's built-in test runner
-- Place test files alongside source files or in a `tests/` directory
-- No specific test framework is currently configured
+## Windows-Specific Notes
 
-### Dependencies
+- Paths use backslashes; use `path.win32` utilities
+- User home: `process.env.USERPROFILE`
+- Scoop paths: `%USERPROFILE%\scoop` (user) or `C:\ProgramData\scoop` (global)
+- Environment variable: `SWB_HOME` overrides default home directory
 
-- Runtime: `mri` for argument parsing
-- Dev: `@types/bun`, `prettier`
-- Peer: `typescript` (expected to be available in the environment)
+## Testing
 
-### Git Conventions
+- Uses Bun's built-in test runner
+- Run single file: `bun test path/to/file.test.ts`
+- Place tests alongside source or in `tests/` directory
 
-- Commit messages: concise, present tense ("Add" not "Added")
+## Git Conventions
+
+- Commit messages: present tense, concise ("Add feature" not "Added feature")
+- Format: `type(scope): message` (e.g., `fix(search): handle empty results`)
+- Types: `feat`, `fix`, `refactor`, `perf`, `docs`, `chore`, `test`
 - One logical change per commit
 - No force pushes to main/master
-- Create PRs for non-trivial changes
