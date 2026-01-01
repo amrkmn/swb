@@ -53,14 +53,15 @@ bun run release patch --dry-run  # Preview without making changes
 **Commands** (`src/commands/`)
 Available commands include:
 
-- `cache` - Manage search cache for faster performance
-- `list` - List installed apps with optional filtering
-- `which` - Locate executable paths
-- `status` - Show installation status
+- `cache` - Manage search cache for faster performance (not yet implemented)
+- `cleanup` - Clean up Scoop installation artifacts
 - `config` - Configuration management
 - `info` - App information display
+- `list` - List installed apps with optional filtering
 - `prefix` - Show app installation paths
 - `search` - Search for packages (with optimized caching)
+- `status` - Show installation status
+- `which` - Locate executable paths
 
 **Utilities** (`src/utils/`)
 
@@ -117,8 +118,8 @@ Available commands include:
 ### Development
 
 - `@types/bun` latest - Bun runtime type definitions
-- `@types/node` ^24.7.0 - Node.js type compatibility
-- `prettier` ^3.6.2 - Code formatting
+- `@types/node` ^24.10.4 - Node.js type compatibility
+- `prettier` ^3.7.4 - Code formatting
 
 ### Peer
 
@@ -126,7 +127,7 @@ Available commands include:
 
 ## Testing
 
-The project uses Bun's built-in test runner (`bun test`). Currently, no test files exist in the repository.
+The project uses Bun's built-in test runner (`bun test`). Test files are located in `tests/commands/` with a `.test.ts` extension, covering all command implementations.
 
 ## Performance Optimization
 
