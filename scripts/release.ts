@@ -54,9 +54,7 @@ async function main() {
         console.log("  2. Build the project");
         console.log("  3. Commit version bump");
         console.log(`  4. Create git tag v${newVersion}`);
-        console.log("  5. Push to remote");
-        console.log("  6. Create release archive (zip)");
-        console.log("  7. Create GitHub release");
+        console.log("  5. Push to remote (triggers CI release workflow)");
         process.exit(0);
     }
 
@@ -78,22 +76,16 @@ async function main() {
     console.log(`🏷️  Creating tag v${newVersion}...`);
     await $`git tag ${"v" + newVersion}`;
 
-    // Step 5: Push to remote
+    // Step 5: Push to remote (triggers CI release workflow)
     console.log("🚀 Pushing to remote...");
     await $`git push`;
     await $`git push --tags`;
 
-    // Step 6: Create release zip
-    console.log("📦 Creating release archive...");
-    const releaseZip = `swb-v${newVersion}-windows-x64.zip`;
-    await $`powershell Compress-Archive -Path ./dist/swb.exe,./README.md,./LICENSE -DestinationPath ./dist/${releaseZip} -Force`;
-
-    // Step 7: Create GitHub release
-    console.log("🚀 Creating GitHub release...");
-    await $`gh release create ${"v" + newVersion} ./dist/${releaseZip} --title ${"v" + newVersion} --generate-notes`;
-
     console.log("");
-    console.log(`✅ Successfully released v${newVersion}!`);
+    console.log(`✅ Successfully pushed v${newVersion}!`);
+    console.log("");
+    console.log("📦 GitHub Actions will now build and publish the release.");
+    console.log("   Watch progress at: https://github.com/amrkmn/swb/actions");
 }
 
 main().catch(err => {
