@@ -45,7 +45,7 @@ bun run format:src   # Format only src/ and scripts/
 - Quotes: double quotes
 - Trailing commas: ES5 compatible
 - Arrow function parens: avoid when possible (`x => x` not `(x) => x`)
-- Line endings: LF (Unix-style)
+- Line endings: CRLF (Windows-style)
 
 ### Imports
 
