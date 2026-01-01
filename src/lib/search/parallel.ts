@@ -6,19 +6,8 @@
 import { readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { resolveScoopPaths, type InstallScope } from "../paths";
-import type { WorkerSearchMessage, WorkerResponse, WorkerSearchResult } from "./worker";
-
-/**
- * Get the worker URL - handles both dev (.ts) and bundled (.js) contexts
- */
-function getWorkerUrl(): string {
-    // In dev mode, import.meta.url ends with .ts
-    if (import.meta.url.endsWith(".ts")) {
-        return new URL("./worker.ts", import.meta.url).href;
-    }
-    // In bundled mode, worker is at lib/search/worker.js relative to cli.js
-    return new URL("./lib/search/worker.js", import.meta.url).href;
-}
+import { getWorkerUrl } from "../workers";
+import type { WorkerSearchMessage, WorkerResponse, WorkerSearchResult } from "../workers/search";
 
 export interface ParallelSearchResult {
     name: string;
@@ -114,7 +103,7 @@ export async function parallelSearch(
     const workerPromises = targetBuckets.map(bucket => {
         return new Promise<{ bucket: BucketInfo; results: WorkerSearchResult[] }>(
             (resolve, reject) => {
-                const worker = new Worker(getWorkerUrl());
+                const worker = new Worker(getWorkerUrl("search"));
 
                 const timeout = setTimeout(() => {
                     worker.terminate();

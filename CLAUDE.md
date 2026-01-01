@@ -12,7 +12,7 @@ SWB (Scoop With Bun) is a TypeScript/JavaScript reimplementation of the Scoop Wi
 # Development
 bun run dev          # Run CLI in development mode
 bun test             # Run tests
-bun run build        # Build for production (outputs to dist/cli.js)
+bun run build        # Build standalone executable (outputs to dist/swb.exe)
 
 # Code formatting
 bun run format       # Format all files with Prettier
@@ -64,32 +64,39 @@ Available commands include:
 
 **Utilities** (`src/utils/`)
 
-- `logger.ts` - Centralized logging with colored output using chalk
-- `colors.ts` - Color utility functions
+- `logger.ts` - Centralized logging with colored output using ANSI escape codes
+- `colors.ts` - Color utility functions with native ANSI escape code implementation
 - `exec.ts` - Command execution helpers
 - `helpers.ts` - General utility functions
 - `loader.ts` - Loading spinner and ProgressBar utilities for CLI feedback
 
-**Parallel Workers** (`src/lib/status/`, `src/lib/search/`)
+**Parallel Workers** (`src/lib/workers/`)
 
-- Web Workers for parallel processing of status checks and search operations
-- Worker entrypoints must be added to build.ts entrypoints array
-
-**Search Optimization** (`src/lib/sqlite.ts`)
-
-- SQLite-based search using Scoop's built-in `use_sqlite_cache` feature
-- Requires `scoop config use_sqlite_cache true` to be enabled
-- Fast search performance leveraging Scoop's native database
-- Automatic fallback handling for unconfigured systems
+- Centralized Web Workers for parallel processing
+- `src/lib/workers/index.ts` - Worker path resolution with `getWorkerUrl()` function
+- `src/lib/workers/search.ts` - Search worker for parallel bucket scanning
+- `src/lib/workers/status.ts` - Status worker for parallel status checks
+- Workers are embedded in compiled executable using Bun's virtual filesystem
+- Each worker operates independently on separate data batches
+- Used by `src/lib/search/parallel.ts` and `src/lib/status/parallel.ts`
 
 ### Build System
 
-- Uses Bun's native bundler (`Bun.build`)
-- Target: Bun runtime
+- Uses Bun's native bundler (`Bun.build`) with compile mode only
+- Produces standalone executable (`dist/swb.exe`) with embedded workers
+- Workers embedded using Bun's virtual filesystem (`B:/~BUN/root/lib/workers`)
 - Minification enabled for production
 - Version injection via `SWB_VERSION` environment variable
 - Build script: `scripts/build.ts`
 - Release script: `scripts/release.ts` - handles version bump, build, git tag, and npm publish
+- Worker entrypoints: `src/lib/workers/search.ts`, `src/lib/workers/status.ts`
+- Compile-time constant `SWB_WORKER_PATH` defined during build
+
+**Adding New Workers:**
+1. Create worker file in `src/lib/workers/<name>.ts`
+2. Add worker entrypoint to `scripts/build.ts` entrypoints array
+3. Use `getWorkerUrl("<name>")` from `src/lib/workers/index.ts` to resolve worker path
+4. Worker automatically embedded in compiled executable
 
 ### Code Conventions
 
@@ -100,15 +107,27 @@ Available commands include:
 - Command definitions follow consistent interface pattern
 - Error handling with proper exit codes (0 = success, 1 = error)
 
+## Dependencies
+
+### Runtime
+
+- `mri` ^1.2.0 - Command-line argument parsing
+
+### Development
+
+- `@types/bun` latest - Bun runtime type definitions
+- `@types/node` ^24.7.0 - Node.js type compatibility
+- `prettier` ^3.6.2 - Code formatting
+
+### Peer
+
+- `typescript` ^5.9.3 - TypeScript compiler support
+
+## Testing
+
+The project uses Bun's built-in test runner (`bun test`). Currently, no test files exist in the repository.
+
 ## Performance Optimization
-
-**SQLite Search System**
-
-```bash
-# Enable Scoop's SQLite cache (required for optimal performance)
-scoop config use_sqlite_cache true
-scoop update   # Rebuild SQLite database
-```
 
 **Environment Variables**
 
@@ -117,12 +136,14 @@ scoop update   # Rebuild SQLite database
   - Used for any local cache files if needed
   - Useful for shared environments or custom storage locations
 
-The search system now leverages Scoop's native SQLite cache for:
+**Parallel Search System**
 
-- Fast search performance with native database queries
-- No cold start delays (immediate search results)
-- Automatic database maintenance via Scoop's update process
-- Seamless integration with existing Scoop installations
+The search system uses multi-worker parallel processing for fast performance:
+
+- Multiple Web Workers scan buckets in parallel
+- Each worker processes one bucket directory independently
+- Progress tracking with real-time bucket status updates
+- Typical search completes in under 1 second across all buckets
 
 ## Scoop Compatibility
 

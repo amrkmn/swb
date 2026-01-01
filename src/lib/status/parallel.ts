@@ -7,30 +7,19 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { type InstalledApp } from "src/lib/apps.ts";
 import { resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
+import { getWorkerUrl } from "../workers";
 import type {
     InstalledAppInfo,
     BucketLocation,
     StatusWorkerMessage,
     StatusWorkerResponse,
     AppStatusResult,
-} from "./worker.ts";
+} from "../workers/status.ts";
 
 export type { AppStatusResult };
 
 export interface StatusCheckOptions {
     onProgress?: (completed: number, total: number) => void;
-}
-
-/**
- * Get the worker URL (handles both dev and bundled modes)
- */
-function getWorkerUrl(): string {
-    // In dev mode, import.meta.url ends with .ts
-    if (import.meta.url.endsWith(".ts")) {
-        return new URL("./worker.ts", import.meta.url).href;
-    }
-    // In bundled mode, worker is at lib/status/worker.js relative to cli.js
-    return new URL("./lib/status/worker.js", import.meta.url).href;
 }
 
 /**
@@ -145,7 +134,7 @@ export async function parallelStatusCheck(
     // Spawn workers for each batch
     const workerPromises = appBatches.map((batch, workerIndex) => {
         return new Promise<AppStatusResult[]>((resolve, reject) => {
-            const worker = new Worker(getWorkerUrl());
+            const worker = new Worker(getWorkerUrl("status"));
 
             const timeout = setTimeout(() => {
                 worker.terminate();
