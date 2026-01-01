@@ -38,7 +38,7 @@ function markInstalledApps(results: SearchResult[]): SearchResult[] {
         const installed = installedMap.get(result.name.toLowerCase());
         return {
             ...result,
-            isInstalled: !!installed,
+            isInstalled: !!installed && installed.bucket === result.bucket,
             scope: installed?.scope === "global" ? ("global" as const) : result.scope,
         };
     });
