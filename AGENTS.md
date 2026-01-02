@@ -301,6 +301,30 @@ bar.setProgress(current, "Current step description");
 bar.complete("Done!");
 ```
 
+### Table Formatting (`src/utils/helpers.ts`)
+
+Use `formatLineColumns` (or its alias `formatTable`) to display aligned columns of text. It supports custom weights for column resizing when content exceeds terminal width.
+
+```typescript
+import { formatLineColumns } from "src/utils/helpers.ts";
+
+const data = [
+  ["Name", "Version", "Description"],
+  ["app1", "1.0.0", "A great app"],
+  ["long-app-name", "2.0.0-beta", "Another app description"],
+];
+
+// Default: equal distribution
+const table = formatLineColumns(data);
+
+// Custom weights: Name=2.0, Version=1.0, Description=3.0
+const weightedTable = formatLineColumns(data, {
+  weights: [2.0, 1.0, 3.0],
+});
+
+console.log(weightedTable);
+```
+
 ## Build & Bundle
 
 ### Build System Details
