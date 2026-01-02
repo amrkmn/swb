@@ -7,18 +7,23 @@ const packageJson = await packageJsonFile.json();
 
 const version = process.env.SWB_VERSION ?? packageJson.version;
 
-console.log(`Building SWB v${version}...`);
-console.log("Building standalone executable...");
+// Parse command line flags
+const baselineFlag = process.argv.includes("--baseline");
 
-// Bun's virtual filesystem root path for Windows compiled binaries
+// Determine target based on flag
+const target: Bun.Build.Target = baselineFlag ? "bun-windows-x64-baseline" : "bun-windows-x64";
+const variant = baselineFlag ? "Baseline" : "AVX2";
+
+console.log(`Building SWB v${version} (${variant})...`);
+
+// Bun's virtual filesystem root path for Windows
 const bunfsRoot = "B:/~BUN/root";
 
-// Compile the main executable with workers embedded
 const result = await Bun.build({
     entrypoints: ["src/cli.ts", "src/lib/workers/search.ts", "src/lib/workers/status.ts"],
     minify: true,
-    target: "bun",
     compile: {
+        target: target,
         outfile: "swb.exe",
     },
     outdir: "dist",
@@ -33,5 +38,5 @@ if (!result.success) {
     process.exit(1);
 }
 
-console.log(`Build complete: dist/swb.exe (v${version})`);
-console.log("Workers embedded in executable using Bun's virtual filesystem");
+console.log(`\n✓ Built: dist/swb.exe (${variant})`);
+console.log(`Target: ${target}`);
