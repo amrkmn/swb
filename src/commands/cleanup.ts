@@ -82,11 +82,10 @@ export const definition: CommandDefinition = {
                 results.push(result);
             }
 
-            // Calculate max app name width for alignment using Bun.stringWidth
+            // Calculate max app name width for alignment (app name only, not scope)
             let maxWidth = 0;
             for (const result of results) {
-                const scopeStr = result.scope === "global" ? " (global)" : "";
-                const width = Bun.stringWidth(`${result.app}${scopeStr}`);
+                const width = Bun.stringWidth(result.app);
                 if (width > maxWidth) {
                     maxWidth = width;
                 }

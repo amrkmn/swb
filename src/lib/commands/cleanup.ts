@@ -1,10 +1,10 @@
 import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
+import { readCurrentTarget } from "src/lib/apps.ts";
 import type { InstallScope } from "src/lib/paths.ts";
-import { listInstalledApps, readCurrentTarget } from "src/lib/apps.ts";
 import { resolveScoopPaths } from "src/lib/paths.ts";
-import { log, success, warn, info, verbose as verboseLog } from "src/utils/logger.ts";
-import { dim, green, yellow } from "src/utils/colors.ts";
+import { dim, green } from "src/utils/colors.ts";
+import { info, log, success, verbose as verboseLog, warn } from "src/utils/logger.ts";
 
 export interface CleanupOptions {
     cache: boolean;
@@ -16,10 +16,9 @@ export interface CleanupOptions {
 export interface CleanupResult {
     app: string;
     scope: InstallScope;
-    oldVersions: string[];
+    oldVersions: Array<{ version: string; size: number }>;
     failedVersions: Array<{ version: string; error: string }>;
-    cacheFiles: string[];
-    freedSpace: number;
+    cacheFiles: Array<{ name: string; size: number }>;
 }
 
 /**
@@ -89,7 +88,6 @@ export function cleanupApp(
         oldVersions: [],
         failedVersions: [],
         cacheFiles: [],
-        freedSpace: 0,
     };
 
     const { version: currentVersion } = readCurrentTarget(appDir);
@@ -113,8 +111,7 @@ export function cleanupApp(
             try {
                 const size = getDirectorySize(versionDir);
                 rmSync(versionDir, { recursive: true, force: true });
-                result.oldVersions.push(version);
-                result.freedSpace += size;
+                result.oldVersions.push({ version, size });
                 if (options.verbose) {
                     verboseLog(`${appName}: Removed version ${version} (${formatSize(size)})`);
                 }
@@ -159,8 +156,7 @@ export function cleanupApp(
                                 const stats = statSync(cachePath);
                                 const size = stats.size;
                                 rmSync(cachePath, { force: true });
-                                result.cacheFiles.push(entry);
-                                result.freedSpace += size;
+                                result.cacheFiles.push({ name: entry, size });
                                 if (options.verbose) {
                                     verboseLog(
                                         `${appName}: Removed cache file ${entry} (${formatSize(size)})`
@@ -191,50 +187,44 @@ export function displayAppCleanupResult(result: CleanupResult, maxWidth = 0): vo
         return;
     }
 
-    // Build status message
-    const parts: string[] = [];
+    // Build version string (join with comma)
+    const versions = result.oldVersions.map(v => v.version).join(", ");
 
-    if (result.oldVersions.length > 0) {
-        parts.push(`${green(`${result.oldVersions.length} version(s)`)}`);
-    }
+    // Calculate total space freed
+    const versionsSpace = result.oldVersions.reduce((sum, v) => sum + v.size, 0);
+    const cacheSpace = result.cacheFiles.reduce((sum, c) => sum + c.size, 0);
+    const totalSpace = versionsSpace + cacheSpace;
 
-    if (result.cacheFiles.length > 0) {
-        parts.push(`${green(`${result.cacheFiles.length} cache file(s)`)}`);
-    }
+    const freedStr = totalSpace > 0 ? ` [${green(formatSize(totalSpace))}]` : "";
 
-    if (result.failedVersions.length > 0) {
-        parts.push(`${yellow(`${result.failedVersions.length} failed`)}`);
-    }
-
-    const freedStr = result.freedSpace > 0 ? ` (${green(formatSize(result.freedSpace))})` : "";
-
-    // Pad app name to align columns using Bun.stringWidth for accurate width calculation
-    const appNameWithScope = `${result.app}${scopeStr}`;
-    let paddedName = appNameWithScope;
+    // Pad app name to align columns
+    let paddedName = result.app;
     if (maxWidth > 0) {
-        const currentWidth = Bun.stringWidth(appNameWithScope);
+        const currentWidth = Bun.stringWidth(result.app);
         const spacesToAdd = maxWidth - currentWidth;
         if (spacesToAdd > 0) {
-            paddedName = appNameWithScope + " ".repeat(spacesToAdd);
+            paddedName = result.app + " ".repeat(spacesToAdd);
         }
     }
 
-    log(`${paddedName}: ${parts.join(", ")}${freedStr}`);
+    log(`${paddedName}: ${versions}${freedStr}${scopeStr}`);
 }
 /**
  * Display cleanup summary
  */
 export function displayCleanupSummary(results: CleanupResult[]): void {
-    let totalFreed = 0;
     let totalVersionsRemoved = 0;
     let totalVersionsFailed = 0;
     let totalCacheFilesRemoved = 0;
+    let totalVersionsSpace = 0;
+    let totalCacheSpace = 0;
 
     for (const result of results) {
         totalVersionsRemoved += result.oldVersions.length;
         totalVersionsFailed += result.failedVersions.length;
         totalCacheFilesRemoved += result.cacheFiles.length;
-        totalFreed += result.freedSpace;
+        totalVersionsSpace += result.oldVersions.reduce((sum, v) => sum + v.size, 0);
+        totalCacheSpace += result.cacheFiles.reduce((sum, c) => sum + c.size, 0);
     }
 
     // Summary
@@ -251,12 +241,18 @@ export function displayCleanupSummary(results: CleanupResult[]): void {
     if (totalVersionsRemoved > 0 || totalCacheFilesRemoved > 0) {
         success("Cleanup complete");
         if (totalVersionsRemoved > 0) {
-            log(`  ${dim("Old versions removed:")} ${totalVersionsRemoved}`);
+            log(
+                `  ${dim("Old versions removed:")} ${totalVersionsRemoved} (${green(formatSize(totalVersionsSpace))})`
+            );
         }
         if (totalCacheFilesRemoved > 0) {
-            log(`  ${dim("Cache files removed:")} ${totalCacheFilesRemoved}`);
+            log(
+                `  ${dim("Cache files removed:")} ${totalCacheFilesRemoved} (${green(formatSize(totalCacheSpace))})`
+            );
         }
-        log(`  ${dim("Total space freed:")} ${green(formatSize(totalFreed))}`);
+        log(
+            `  ${dim("Total space freed:")} ${green(formatSize(totalVersionsSpace + totalCacheSpace))}`
+        );
     }
 
     if (totalVersionsFailed > 0) {
