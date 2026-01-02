@@ -16,9 +16,11 @@ jobs:
                     - name: "AVX2"
                       suffix: ""
                       build_flag: ""
-                    - name: "Baseline"
-                      suffix: "-baseline"
-                      build_flag: "--baseline"
+                    # Baseline build temporarily disabled due to Bun compiler download issues
+                    # Will re-enable when Bun properly supports baseline compiler downloads
+                    # - name: "Baseline"
+                    #   suffix: "-baseline"
+                    #   build_flag: "--baseline"
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -30,14 +32,6 @@ jobs:
 
             - name: Install dependencies
               run: bun install --frozen-lockfile
-
-            - name: Install Bun baseline compiler (for baseline builds)
-              if: matrix.variant.build_flag == '--baseline'
-              run: |
-                  # Trigger baseline compiler download by running a simple baseline compile
-                  echo "console.log('test')" > test.js
-                  bun build test.js --compile --target=bun-windows-x64-baseline --outfile=test.exe 2>&1 || true
-                  rm -f test.js test.exe
 
             - name: Extract version from tag
               id: version
