@@ -45,10 +45,23 @@ jobs:
               run: |
                   version="${{ steps.version.outputs.VERSION }}"
                   suffix="${{ matrix.variant.suffix }}"
+                  dirname="swb-v${version}-windows-x64${suffix}"
+                  zipname="${dirname}.zip"
+
+                  # Create directory structure
+                  mkdir -p "dist/${dirname}"
+
+                  # Copy files into directory
+                  cp dist/swb.exe "dist/${dirname}/"
+                  cp README.md "dist/${dirname}/"
+                  cp LICENSE "dist/${dirname}/"
+
+                  # Create zip with directory structure
                   cd dist
-                  zip -r swb-v${version}-windows-x64${suffix}.zip swb.exe
-                  cd ..
-                  zip -j dist/swb-v${version}-windows-x64${suffix}.zip README.md LICENSE
+                  zip -r "${zipname}" "${dirname}"
+
+                  # Clean up temporary directory
+                  rm -rf "${dirname}"
 
             - name: Upload to GitHub Release
               uses: softprops/action-gh-release@v2
