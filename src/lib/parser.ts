@@ -81,7 +81,7 @@ export class ArgumentParser {
 
         // Use mri for lightweight argument parsing
         const parsed = mri(argv, {
-            boolean: ["help", "version", "verbose", "global", "h", "V", "g", "v"],
+            boolean: ["help", "version", "verbose", "global", "h", "V", "g", "v", "dry-run"],
             alias: {
                 h: "help",
                 V: "version",

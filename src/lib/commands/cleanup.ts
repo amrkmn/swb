@@ -10,6 +10,7 @@ export interface CleanupOptions {
     cache: boolean;
     global: boolean;
     verbose: boolean;
+    dryRun: boolean;
     suppressWarnings?: boolean;
 }
 
@@ -110,10 +111,13 @@ export function cleanupApp(
             const versionDir = path.join(appDir, version);
             try {
                 const size = getDirectorySize(versionDir);
-                rmSync(versionDir, { recursive: true, force: true });
+                if (!options.dryRun) {
+                    rmSync(versionDir, { recursive: true, force: true });
+                }
                 result.oldVersions.push({ version, size });
                 if (options.verbose) {
-                    verboseLog(`${appName}: Removed version ${version} (${formatSize(size)})`);
+                    const action = options.dryRun ? "Would remove" : "Removed";
+                    verboseLog(`${appName}: ${action} version ${version} (${formatSize(size)})`);
                 }
             } catch (err) {
                 const errorMsg = err instanceof Error ? err.message : String(err);
@@ -155,11 +159,14 @@ export function cleanupApp(
                             try {
                                 const stats = statSync(cachePath);
                                 const size = stats.size;
-                                rmSync(cachePath, { force: true });
+                                if (!options.dryRun) {
+                                    rmSync(cachePath, { force: true });
+                                }
                                 result.cacheFiles.push({ name: entry, size });
                                 if (options.verbose) {
+                                    const action = options.dryRun ? "Would remove" : "Removed";
                                     verboseLog(
-                                        `${appName}: Removed cache file ${entry} (${formatSize(size)})`
+                                        `${appName}: ${action} cache file ${entry} (${formatSize(size)})`
                                     );
                                 }
                             } catch {}

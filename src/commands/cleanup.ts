@@ -29,12 +29,17 @@ export const definition: CommandDefinition = {
             flags: "-k, --cache",
             description: "Remove outdated download cache files",
         },
+        {
+            flags: "--dry-run",
+            description: "Show what would be done without making changes",
+        },
     ],
     handler: async (args: ParsedArgs): Promise<number> => {
         try {
             const appNames = args.args;
             const cleanAll = Boolean(args.flags.all || args.flags.a);
             const cache = Boolean(args.flags.cache || args.flags.k);
+            const dryRun = Boolean(args.flags["dry-run"]);
             const verbose = Boolean(args.flags.verbose || args.global.verbose);
             const useGlobal = Boolean(args.flags.global || args.global.global);
 
@@ -77,17 +82,24 @@ export const definition: CommandDefinition = {
                     cache,
                     global: useGlobal,
                     verbose,
+                    dryRun,
                     suppressWarnings: false, // Show inline warnings for each app
                 });
                 results.push(result);
             }
 
-            // Calculate max app name width for alignment (app name only, not scope)
+            // Calculate max app name width for alignment (only include apps with items to display)
             let maxWidth = 0;
             for (const result of results) {
-                const width = Bun.stringWidth(result.app);
-                if (width > maxWidth) {
-                    maxWidth = width;
+                if (
+                    result.oldVersions.length > 0 ||
+                    result.cacheFiles.length > 0 ||
+                    result.failedVersions.length > 0
+                ) {
+                    const width = Bun.stringWidth(result.app);
+                    if (width > maxWidth) {
+                        maxWidth = width;
+                    }
                 }
             }
 
