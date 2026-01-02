@@ -1,7 +1,7 @@
 {
     "name": "@amrkmn/swb",
     "description": "Scoop With Bun (swb): A JavaScript implementation of Scoop using Bun's runtime.",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "author": "amrkmn",
     "repository": {
         "type": "git",
