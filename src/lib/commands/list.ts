@@ -57,28 +57,15 @@ function getUpdateDate(app: InstalledApp): Date | null {
     }
 }
 
-/**
- * Format a date as relative time or short date
- */
 function formatDate(date: Date | null): string {
     if (!date) return "";
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return "today";
-    if (diffDays === 1) return "yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-
-    // For older dates, show the actual date
-    return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-    });
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 /**
@@ -130,7 +117,9 @@ export function displayAppsList(apps: AppListInfo[]): void {
         tableData.push([name, version, source, updated, info]);
     }
 
-    const formattedTable = formatLineColumns(tableData);
+    const formattedTable = formatLineColumns(tableData, {
+        weights: [2.0, 1.0, 1.0, 0.5, 1.5],
+    });
     log(formattedTable);
 }
 
