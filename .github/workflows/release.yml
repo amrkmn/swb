@@ -7,7 +7,7 @@ on:
 
 jobs:
     build-and-release:
-        runs-on: windows-latest
+        runs-on: ubuntu-latest
         permissions:
             contents: write
         strategy:
@@ -16,11 +16,9 @@ jobs:
                     - name: "AVX2"
                       suffix: ""
                       build_flag: ""
-                    # Baseline build temporarily disabled due to Bun compiler download issues
-                    # Will re-enable when Bun properly supports baseline compiler downloads
-                    # - name: "Baseline"
-                    #   suffix: "-baseline"
-                    #   build_flag: "--baseline"
+                    - name: "Baseline"
+                      suffix: "-baseline"
+                      build_flag: "--baseline"
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -44,11 +42,13 @@ jobs:
                   SWB_VERSION: ${{ steps.version.outputs.VERSION }}
 
             - name: Create release archive
-              shell: pwsh
               run: |
-                  $version = "${{ steps.version.outputs.VERSION }}"
-                  $suffix = "${{ matrix.variant.suffix }}"
-                  Compress-Archive -Path ./dist/swb.exe, ./README.md, ./LICENSE -DestinationPath ./dist/swb-v$version-windows-x64$suffix.zip -Force
+                  version="${{ steps.version.outputs.VERSION }}"
+                  suffix="${{ matrix.variant.suffix }}"
+                  cd dist
+                  zip -r swb-v${version}-windows-x64${suffix}.zip swb.exe
+                  cd ..
+                  zip -j dist/swb-v${version}-windows-x64${suffix}.zip README.md LICENSE
 
             - name: Upload to GitHub Release
               uses: softprops/action-gh-release@v2
