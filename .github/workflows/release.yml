@@ -5,11 +5,36 @@ on:
         tags:
             - "v*"
 
+permissions:
+    contents: write
+
 jobs:
-    build-and-release:
+    create-release:
         runs-on: ubuntu-latest
-        permissions:
-            contents: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Create Release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  tag_name="${GITHUB_REF#refs/tags/}"
+                  echo "Creating release for tag: $tag_name"
+
+                  # Check if release exists, if not create it
+                  if ! gh release view "$tag_name" > /dev/null 2>&1; then
+                      gh release create "$tag_name" \
+                          --title "$tag_name" \
+                          --generate-notes \
+                          --verify-tag
+                  else
+                      echo "Release $tag_name already exists"
+                  fi
+
+    build-and-upload:
+        needs: create-release
+        runs-on: ubuntu-latest
         strategy:
             matrix:
                 variant:
@@ -63,7 +88,12 @@ jobs:
                   # Clean up temporary directory
                   rm -rf "${dirname}"
 
-            - name: Upload to GitHub Release
-              uses: softprops/action-gh-release@v2
-              with:
-                  files: ./dist/swb-v${{ steps.version.outputs.VERSION }}-windows-x64${{ matrix.variant.suffix }}.zip
+            - name: Upload to Release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  version="${{ steps.version.outputs.VERSION }}"
+                  zipname="dist/swb-v${version}-windows-x64${{ matrix.variant.suffix }}.zip"
+
+                  echo "Uploading $zipname to v$version..."
+                  gh release upload "v${version}" "$zipname" --clobber
