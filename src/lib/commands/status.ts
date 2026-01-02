@@ -368,7 +368,9 @@ export function displayAppStatus(statuses: AppStatus[]): void {
     }
 
     // Format and display the table
-    const formattedTable = formatLineColumns(tableData);
+    const formattedTable = formatLineColumns(tableData, {
+        weights: [2.0, 1.0, 1.0, 1.0, 1.5], // Give more weight to Name and Info
+    });
     log(formattedTable);
     newline();
 }
