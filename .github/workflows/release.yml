@@ -93,7 +93,13 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   version="${{ steps.version.outputs.VERSION }}"
-                  zipname="dist/swb-v${version}-windows-x64${{ matrix.variant.suffix }}.zip"
+                  basename="dist/swb-v${version}-windows-x64${{ matrix.variant.suffix }}.zip"
 
-                  echo "Uploading $zipname to v$version..."
-                  gh release upload "v${version}" "$zipname" --clobber
+                  echo "Uploading $basename to v$version..."
+                  gh release upload "v${version}" "$basename" --clobber
+
+                  # Generate and upload SHA256 checksum
+                  sha256name="${basename}.sha256"
+                  sha256sum "$basename" | awk '{print $1}' > "$sha256name"
+                  echo "Uploading $sha256name to v$version..."
+                  gh release upload "v${version}" "$sha256name" --clobber
