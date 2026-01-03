@@ -10,14 +10,14 @@
 
 SWB (Scoop With Bun) is a modern, high-performance reimplementation of the [Scoop](https://scoop.sh/) Windows package manager, built with [Bun](https://bun.com) and TypeScript. It provides lightning-fast package management for Windows with native shell integration and advanced search optimization.
 
-## ✨ Key Features
+## Key Features
 
-- **⚡ Lightning Fast Search** - Advanced search cache system with ~50ms response times
-- **🔍 Smart Package Discovery** - Multi-bucket search with precomputed indexes
-- **🪟 Native Windows Integration** - Built specifically for Windows with proper shim resolution
-- **📦 Full Scoop Compatibility** - Works with existing Scoop installations and manifests
-- **🎨 Rich CLI Experience** - Colored output, detailed logging, and intuitive commands
-- **🚀 Background Optimization** - Automatic cache warming for instant startup
+- **Lightning Fast Search** - Parallel processing with sub-second response times
+- **Smart Package Discovery** - Multi-bucket search with concurrent scanning
+- **Native Windows Integration** - Built specifically for Windows with proper shim resolution
+- **Full Scoop Compatibility** - Works with existing Scoop installations and manifests
+- **Rich CLI Experience** - Colored output, detailed logging, and intuitive commands
+- **Parallel Workers** - Multi-worker architecture for fast bucket scanning
 
 ## Requirements
 
@@ -39,7 +39,7 @@ bun run dev
 bun run build
 ```
 
-## 🛠️ Available Commands
+## Available Commands
 
 ### Package Management
 
@@ -53,39 +53,28 @@ swb which <command>    # Find executable locations with shim resolution
 ### System Management
 
 ```bash
-swb cache             # Manage search cache for faster performance
-swb cache --update    # Update search cache
-swb cache --clear     # Clear search cache
 swb status            # Show installation status
 swb config            # Configuration management
 swb prefix <package>  # Show package installation paths
+swb cleanup           # Clean up Scoop installation artifacts
 ```
 
-## 🚀 Performance Optimization
+## Performance Optimization
 
-SWB features an advanced search cache system that dramatically improves performance:
+SWB features parallel search processing for fast performance:
 
-- **Cold Start Optimization**: Eliminates 2+ minute delays → ~50ms searches
-- **Persistent Caching**: Smart cache invalidation with 5-minute TTL
-- **Background Warming**: Cache updates happen in background during startup
-- **Precomputed Indexes**: Package names, descriptions, and binaries pre-indexed
+- **Parallel Processing**: Multi-worker architecture scans buckets concurrently
+- **Fast Execution**: Typical searches complete in under 1 second across all buckets
+- **Real-time Progress**: Live bucket status updates during search
+- **Efficient Scanning**: Each worker processes bucket directories independently
 
-### Cache Management
-
-```bash
-swb cache          # Update search cache (default action)
-swb cache --update # Explicitly update cache
-swb cache --force  # Force update even if cache is recent
-swb cache --clear  # Clear search cache
-```
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
 ├── cli.ts              # Main CLI entry point
 ├── commands/           # Command implementations
-│   ├── cache.ts        # Cache management
+│   ├── cleanup.ts      # Clean up artifacts
 │   ├── config.ts       # Configuration
 │   ├── info.ts         # Package information
 │   ├── list.ts         # List packages
@@ -95,25 +84,27 @@ src/
 │   └── which.ts        # Executable location
 ├── lib/                # Core library functions
 │   ├── cli.ts          # CLI engine and command registry
-│   ├── commands/       # Command implementations (lib)
 │   ├── commands.ts     # Command registry
 │   ├── apps.ts         # App management
 │   ├── manifests.ts    # Manifest parsing
 │   ├── parser.ts       # Argument parsing
 │   ├── paths.ts        # Path utilities
-│   └── which.ts        # Enhanced executable resolution
+│   ├── which.ts        # Enhanced executable resolution
+│   ├── search/         # Search system with parallel processing
+│   ├── status/         # Status system with parallel processing
+│   └── workers/        # Web Workers for parallel processing
 ├── utils/              # Utility functions
 │   ├── colors.ts       # Color utilities
-│   ├── commands.ts     # Command utilities
 │   ├── exec.ts         # Command execution
 │   ├── helpers.ts      # General helpers
-│   ├── loader.ts       # Module loading
+│   ├── loader.ts       # Loading spinners and progress bars
 │   └── logger.ts       # Logging system
 └── scripts/
-    └── build.ts        # Custom build with version injection
+    ├── build.ts        # Custom build with version injection
+    └── release.ts      # Release automation
 ```
 
-## 🔧 Development
+## Development
 
 ```bash
 # Development commands
@@ -127,26 +118,20 @@ bun run format:check # Check formatting without changes
 bun run format:src  # Format only src/ and scripts/ directories
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
 - `SWB_HOME` - Custom home directory (default: `~`)
   - Data directory becomes `$SWB_HOME/.swb`
-  - Cache files stored in `$SWB_HOME/.swb/cache/`
+  - Used for any local cache files if needed
 
-### Cache Configuration
-
-- Cache TTL: 5 minutes (configurable)
-- Cache location: `~/.swb/cache/search-cache.json`
-- Background warming during CLI startup
-
-## 🏗️ Architecture
+## Architecture
 
 ### Core Components
 
 - **CLI System**: Centralized command registry with dynamic loading
-- **Search Cache Manager**: Advanced caching with persistent storage
+- **Parallel Workers**: Web Workers for concurrent bucket scanning and status checks
 - **App Management**: Scoop directory scanning with symlink resolution
 - **Path Resolution**: Windows-specific path handling for user/global scopes
 - **Command System**: Modular command architecture with metadata
@@ -158,7 +143,7 @@ bun run format:src  # Format only src/ and scripts/ directories
 - Proper handling of Scoop manifests and installation metadata
 - Windows shim resolution like native Scoop
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -167,10 +152,10 @@ bun run format:src  # Format only src/ and scripts/ directories
 5. Run `bun test` and `bun run build` to verify
 6. Submit a pull request
 
-## 📄 License
+## License
 
 Apache 2.0
 
 ---
 
-**Built with [Bun](https://bun.com) for Windows** • **Optimized for Performance** • **Scoop Compatible**
+Built with [Bun](https://bun.com) for Windows - Optimized for Performance - Scoop Compatible

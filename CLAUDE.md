@@ -20,7 +20,7 @@ bun run format:check # Check formatting without changes
 bun run format:src   # Format only src/ and scripts/ directories
 
 # Releasing
-bun run release patch    # Bump patch version (0.0.x), build, tag, push, publish
+bun run release patch    # Bump patch version (0.0.x), build, tag, push to trigger CI
 bun run release minor    # Bump minor version (0.x.0)
 bun run release major    # Bump major version (x.0.0)
 bun run release patch --dry-run  # Preview without making changes
@@ -53,7 +53,6 @@ bun run release patch --dry-run  # Preview without making changes
 **Commands** (`src/commands/`)
 Available commands include:
 
-- `cache` - Manage search cache for faster performance (not yet implemented)
 - `cleanup` - Clean up Scoop installation artifacts
 - `config` - Configuration management
 - `info` - App information display
@@ -89,7 +88,12 @@ Available commands include:
 - Minification enabled for production
 - Version injection via `SWB_VERSION` environment variable
 - Build script: `scripts/build.ts`
-- Release script: `scripts/release.ts` - handles version bump, build, git tag, and npm publish
+  - Supports `--baseline` flag for CPU baseline compatibility (bun-windows-x64-baseline)
+  - Default build uses AVX2 (bun-windows-x64)
+- Release script: `scripts/release.ts` - handles version bump, build, git tag, and push
+  - Pushing tags triggers GitHub Actions release workflow
+  - GitHub Actions builds both AVX2 and baseline variants
+  - Automatically creates GitHub releases with compiled binaries
 - Worker entrypoints: `src/lib/workers/search.ts`, `src/lib/workers/status.ts`
 - Compile-time constant `SWB_WORKER_PATH` defined during build
 
