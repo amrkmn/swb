@@ -202,7 +202,7 @@ export function displayAppCleanupResult(result: CleanupResult, maxWidth = 0): vo
     const cacheSpace = result.cacheFiles.reduce((sum, c) => sum + c.size, 0);
     const totalSpace = versionsSpace + cacheSpace;
 
-    const freedStr = totalSpace > 0 ? ` [${green(formatSize(totalSpace))}]` : "";
+    const freedStr = totalSpace > 0 ? ` (${dim(formatSize(totalSpace))})` : "";
 
     // Pad app name to align columns
     let paddedName = result.app;
@@ -214,7 +214,7 @@ export function displayAppCleanupResult(result: CleanupResult, maxWidth = 0): vo
         }
     }
 
-    log(`${paddedName}: ${versions}${freedStr}${scopeStr}`);
+    log(`${paddedName} : ${versions}${freedStr}${scopeStr}`);
 }
 /**
  * Display cleanup summary
@@ -249,17 +249,15 @@ export function displayCleanupSummary(results: CleanupResult[]): void {
         success("Cleanup complete");
         if (totalVersionsRemoved > 0) {
             log(
-                `  ${dim("Old versions removed:")} ${totalVersionsRemoved} (${green(formatSize(totalVersionsSpace))})`
+                `  ${"Old versions removed:"} ${totalVersionsRemoved} (${dim(formatSize(totalVersionsSpace))})`
             );
         }
         if (totalCacheFilesRemoved > 0) {
             log(
-                `  ${dim("Cache files removed:")} ${totalCacheFilesRemoved} (${green(formatSize(totalCacheSpace))})`
+                `  ${"Cache files removed:"} ${totalCacheFilesRemoved} (${dim(formatSize(totalCacheSpace))})`
             );
         }
-        log(
-            `  ${dim("Total space freed:")} ${green(formatSize(totalVersionsSpace + totalCacheSpace))}`
-        );
+        log(`  ${"Total space freed:"} ${green(formatSize(totalVersionsSpace + totalCacheSpace))}`);
     }
 
     if (totalVersionsFailed > 0) {
