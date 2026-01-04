@@ -57,7 +57,6 @@ swb prefix <package>  # Show package installation paths
 swb cleanup           # Clean up Scoop installation artifacts
 ```
 
-
 ## License
 
 Apache 2.0
