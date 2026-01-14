@@ -188,7 +188,11 @@ export function formatLineColumns(lines: string[][], options: string | FormatOpt
                     const visualLength = getVisualLength(content);
                     const paddingNeeded = targetWidth - visualLength;
 
-                    return linePrefix + content + " ".repeat(Math.max(0, paddingNeeded));
+                    // Don't add padding to the last column to avoid trailing spaces
+                    const isLastColumn = i === l.length - 1;
+                    const padding = isLastColumn ? "" : " ".repeat(Math.max(0, paddingNeeded));
+
+                    return linePrefix + content + padding;
                 })
                 .join("  ")
         )
