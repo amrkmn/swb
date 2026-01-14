@@ -133,6 +133,58 @@ Available commands include:
 
 The project uses Bun's built-in test runner (`bun test`). Test files are located in `tests/commands/` with a `.test.ts` extension, covering all command implementations.
 
+## Git Commit Message Format
+
+Follow the Conventional Commits specification for all commit messages:
+
+### Format
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+```
+
+### Types
+
+- `feat` - New feature or enhancement
+- `fix` - Bug fix
+- `chore` - Maintenance tasks (deps, release, cleanup)
+- `docs` - Documentation changes
+- `refactor` - Code restructuring without behavior change
+- `style` - Formatting changes (whitespace, missing semicolons, etc.)
+- `test` - Adding or updating tests
+- `perf` - Performance improvements
+- `ci` - CI/CD configuration changes
+
+### Scopes (optional but recommended)
+
+Common scopes include: `release`, `search`, `help`, `cleanup`, `build`, `ci`, `ui`, `status`
+
+### Examples from Project History
+
+```bash
+feat(release): add automatic changelog generation
+fix(search): improve progress bar feedback during post-processing
+fix(help): remove trailing spaces from help output
+chore(release): bump version to 0.4.10
+docs: simplify and update README
+refactor(ui): make formatLineColumns generic and reusable
+style(cleanup): adjust output formatting
+test: add test files for all commands
+```
+
+### Guidelines
+
+- Use present tense ("add feature" not "added feature")
+- Use imperative mood ("move cursor to..." not "moves cursor to...")
+- Keep subject line under 72 characters
+- Capitalize first letter of subject
+- No period at the end of subject line
+- Separate subject from body with blank line (if body is needed)
+- Wrap body at 72 characters
+- Use body to explain what and why, not how
+
 ## Performance Optimization
 
 **Environment Variables**
