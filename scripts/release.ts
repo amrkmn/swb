@@ -62,7 +62,7 @@ async function main() {
     console.log(`📝 Updating version to ${newVersion}...`);
     packageJson.version = newVersion;
     await Bun.write(packageJsonFile, JSON.stringify(packageJson, null, 4) + "\n");
-    
+
     console.log("🎨 Formatting code...");
     await $`bun run format`.quiet();
 
