@@ -1,92 +1,82 @@
 # AGENTS.md
 
-This file provides essential guidance for agentic coding assistants working on SWB (Scoop With Bun).
+SWB is a TypeScript reimplementation of Scoop package manager built with Bun runtime.
 
-## Project Overview
+**Tech Stack:** Bun >=1.2.0, TypeScript 5.9.3 (strict mode), Windows x64 standalone executable
 
-SWB is a TypeScript reimplementation of the Scoop Windows package manager, built with Bun runtime. Fast package management with parallel processing capabilities.
-
-**Key Technologies:** Bun >=1.2.0, TypeScript 5.9.3 (strict mode), Windows x64 standalone executable
-
-## Essential Commands
+## Commands
 
 ```bash
 # Development
-bun run dev              # Run CLI in development mode
-bun run dev search foo   # Test a specific command
+bun run dev              # Run CLI in dev mode
+bun run dev search foo   # Test specific command
+
+# Testing
 bun test                 # Run all tests
-bun test <file>          # Run a single test file
-bun test --watch         # Run tests in watch mode
+bun test <file>          # Run single test file
+bun test --watch         # Watch mode
 
 # Build & Release
-bun run build                    # Build standalone executable (dist/swb.exe)
-bun run release patch            # Bump patch, build, tag, push, create GitHub release
-bun run release patch --dry-run  # Preview release steps without changes
+bun run build            # Build executable (dist/swb.exe)
+bun run release patch    # Bump version, build, tag, push, create release
+bun run release patch --dry-run  # Preview release steps
 
-# Code Formatting
-bun run format       # Format all files with Prettier
-bun run format:check # Check formatting without changes
+# Formatting
+bun run format       # Format all files
+bun run format:check # Check formatting only
 ```
 
-## Code Style Guidelines
+## Code Style
 
 ### Formatting (Prettier)
 
-- Print width: 100, Tab width: 4 spaces, Semicolons: required, Quotes: double quotes
-- Trailing commas: ES5, Arrow function parens: avoid (`x => x`)
-- Line endings: CRLF (Windows), Bracket spacing: enabled
+Print width: 100, Tab width: 4 spaces, Semicolons: required, Quotes: double, Trailing commas: ES5, CRLF line endings, Bracket spacing enabled. Avoid arrow parens: `x => x`.
 
-### Import Organization
+### Imports
 
 ```typescript
-// 1. External imports first
 import mri from "mri";
-
-// 2. Blank line
-
-// 3. Internal imports with src/ prefix
 import { error, log } from "src/utils/logger.ts";
 import type { CommandDefinition } from "src/lib/parser.ts";
 ```
 
-**Rules:** Always use `src/` prefix for internal modules, use `.ts` extensions, prefer named imports, use `type` keyword for type-only imports.
+External imports first, blank line, then internal imports with `src/` prefix and `.ts` extension. Use named imports and `type` keyword for type-only imports.
 
-### Naming Conventions
+### Naming
 
-| Element         | Style             | Example                       |
-| --------------- | ----------------- | ----------------------------- |
-| Files           | kebab-case        | `my-module.ts`                |
-| Classes         | PascalCase        | `class ArgumentParser`        |
-| Functions       | camelCase         | `function getWorkerUrl()`     |
-| Variables       | camelCase         | `const bucketCount`           |
-| Interfaces      | PascalCase        | `interface CommandDefinition` |
-| Constants       | UPPER_SNAKE_CASE  | `const DEFAULT_TIMEOUT`       |
-| Private members | underscore prefix | `_privateMethod()`            |
+| Element    | Style             | Example             |
+| ---------- | ----------------- | ------------------- |
+| Files      | kebab-case        | `my-module.ts`      |
+| Classes    | PascalCase        | `class Parser`      |
+| Functions  | camelCase         | `getWorkerUrl()`    |
+| Variables  | camelCase         | `bucketCount`       |
+| Interfaces | PascalCase        | `interface Command` |
+| Constants  | UPPER_SNAKE_CASE  | `DEFAULT_TIMEOUT`   |
+| Private    | underscore prefix | `_privateMethod()`  |
 
-### TypeScript Guidelines
+### TypeScript
 
-- Use explicit types for function parameters and return values
-- Prefer interfaces over type aliases for object types
-- Use `any` sparingly; prefer `unknown` for truly unknown types
+- Explicit types for parameters and return values
+- Prefer interfaces over type aliases for objects
+- Avoid `any`; use `unknown` for unknown types
 - Export types alongside implementations
 
-### Error Handling Pattern
+### Error Handling
 
 ```typescript
 handler: async (args: ParsedArgs): Promise<number> => {
   try {
-    // Command logic here
     return 0; // Success
   } catch (err) {
-    error(`Operation failed: ${err instanceof Error ? err.message : String(err)}`);
+    error(`Failed: ${err instanceof Error ? err.message : String(err)}`);
     return 1; // Error
   }
 };
 ```
 
-**Requirements:** Commands return `Promise<number>` (0 = success, 1 = error), always wrap in try/catch, use `error()` from `src/utils/logger.ts`, check `err instanceof Error` before accessing `.message`.
+Commands return `Promise<number>` (0=success, 1=error). Always wrap in try/catch, use `error()` from logger.
 
-## Code Structure
+## Structure
 
 ```
 src/
@@ -94,126 +84,56 @@ src/
   commands/           # Command definitions (one per file)
   lib/
     commands.ts       # Command registry
-    parser.ts         # Argument parsing with mri
+    parser.ts         # Argument parsing (mri)
     paths.ts          # Windows path utilities
-    apps.ts           # App/manifest scanning with caching
+    apps.ts           # App/manifest scanning + caching
     workers/          # Web Workers
   utils/
-    colors.ts         # ANSI color functions
     logger.ts         # Logging (log, error, warn, info, success)
-    helpers.ts        # General utilities
-    loader.ts         # ProgressBar and Loading spinner
+    loader.ts         # ProgressBar, Loading spinner
 ```
 
-### Command Pattern
+### Adding Commands
 
-Create file `src/commands/<name>.ts`:
+1. Create `src/commands/<name>.ts` with `definition` export
+2. Register in `src/lib/commands.ts`
+3. Create test `tests/commands/<name>.test.ts`
 
-```typescript
-export const definition: CommandDefinition = {
-  name: "command-name",
-  description: "Brief description",
-  handler: async (args: ParsedArgs): Promise<number> => {
-    try {
-      // Implementation
-      return 0;
-    } catch (err) {
-      error(`Error: ${err instanceof Error ? err.message : String(err)}`);
-      return 1;
-    }
-  },
-};
-```
+### Adding Workers
 
-**After creating:** Register in `src/lib/commands.ts`, create test in `tests/commands/<name>.test.ts`
-
-### Build System
-
-- Uses Bun's native bundler (`Bun.build`) with `compile: true`
-- Produces standalone Windows executable (`dist/swb.exe`)
-- Workers embedded via Bun's virtual filesystem
-- Version injected via `SWB_VERSION` env var
-
-**Adding Workers:** Create `src/lib/workers/<name>.ts`, add to entrypoints in `scripts/build.ts`, use `getWorkerUrl("<name>")` from `src/lib/workers/index.ts`
+Create `src/lib/workers/<name>.ts`, add to entrypoints in `scripts/build.ts`, use `getWorkerUrl("<name>")`.
 
 ## Testing
 
-Uses Bun's built-in test runner (`bun:test`). Test files: `tests/commands/*.test.ts`.
+Use Bun's test runner. Mock modules before importing:
 
 ```typescript
 import { describe, test, expect, mock } from "bun:test";
-
-// Mock logger to suppress output
 mock.module("src/utils/logger.ts", () => ({
   log: mock(() => {}),
   error: mock(() => {}),
 }));
 
-describe("command-name", () => {
-  test("should work", async () => {
+describe("command", () => {
+  test("does thing", async () => {
     expect(result).toBe(0);
   });
 });
 ```
 
-**Pattern:** Mock modules before importing tested module, check return values (0 = success, 1 = error).
+## Commit Messages
 
-## Git Commit Message Format
+Follow Conventional Commits: `<type>(<scope>): <subject>`
 
-Follow the Conventional Commits specification for all commit messages:
+Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `style`, `test`, `perf`, `ci`
 
-### Format
+Examples: `fix(search): improve progress feedback`, `chore(release): bump version`
 
-```
-<type>(<scope>): <subject>
+Guidelines: Present tense, imperative mood, <72 chars, no trailing period.
 
-[optional body]
-```
+## Gotchas
 
-### Types
-
-- `feat` - New feature or enhancement
-- `fix` - Bug fix
-- `chore` - Maintenance tasks (deps, release, cleanup)
-- `docs` - Documentation changes
-- `refactor` - Code restructuring without behavior change
-- `style` - Formatting changes (whitespace, missing semicolons, etc.)
-- `test` - Adding or updating tests
-- `perf` - Performance improvements
-- `ci` - CI/CD configuration changes
-
-### Scopes (optional but recommended)
-
-Common scopes include: `release`, `search`, `help`, `cleanup`, `build`, `ci`, `ui`, `status`
-
-### Examples from Project History
-
-```bash
-feat(release): add automatic changelog generation
-fix(search): improve progress bar feedback during post-processing
-fix(help): remove trailing spaces from help output
-chore(release): bump version to 0.4.10
-docs: simplify and update README
-refactor(ui): make formatLineColumns generic and reusable
-style(cleanup): adjust output formatting
-test: add test files for all commands
-```
-
-### Guidelines
-
-- Use present tense ("add feature" not "added feature")
-- Use imperative mood ("move cursor to..." not "moves cursor to...")
-- Keep subject line under 72 characters
-- Capitalize first letter of subject
-- No period at the end of subject line
-- Separate subject from body with blank line (if body is needed)
-- Wrap body at 72 characters
-- Use body to explain what and why, not how
-
-## Common Gotchas
-
-- **Path Separators:** Always use `path.join()` or `path.win32.join()` - don't hardcode backslashes
-- **Symlink Resolution:** Use `realpathSync()` to resolve Windows junctions/symlinks
-- **Worker Paths:** Always use `getWorkerUrl()` - it handles dev vs production paths
-- **Module Mocking:** Mock modules before importing the tested module (not after)
-- **Error Messages:** Always check `err instanceof Error` before accessing `.message`
+- **Paths:** Use `path.win32.join()` - don't hardcode backslashes
+- **Symlinks:** Use `realpathSync()` for junctions
+- **Workers:** Always use `getWorkerUrl()`
+- **Error messages:** Check `err instanceof Error` before `.message`

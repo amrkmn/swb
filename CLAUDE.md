@@ -24,6 +24,7 @@ bun run release patch    # Bump patch version (0.0.x), build, tag, push to trigg
 bun run release minor    # Bump minor version (0.x.0)
 bun run release major    # Bump major version (x.0.0)
 bun run release patch --dry-run  # Preview without making changes
+bun run changelog <from-version> <to-version>  # Generate changelog between versions
 ```
 
 ## Architecture Overview
@@ -131,7 +132,7 @@ Available commands include:
 
 ## Testing
 
-The project uses Bun's built-in test runner (`bun test`). Test files are located in `tests/commands/` with a `.test.ts` extension, covering all command implementations.
+The project uses Bun's built-in test runner (`bun test`). Test files are located in `tests/commands/` with a `.test.ts` extension, mirroring the command structure in `src/commands/`. Each command has a corresponding test file (e.g., `src/commands/list.ts` → `tests/commands/list.test.ts`).
 
 ## Git Commit Message Format
 
