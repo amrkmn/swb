@@ -49,6 +49,8 @@ export const definition: CommandDefinition = {
             const progress = new ProgressBar(bucketCount, "Searching");
             progress.start();
 
+            let postProcessingStarted = false;
+
             // Perform the search with progress callback
             const results: SearchResult[] = await searchBuckets(
                 query,
@@ -56,6 +58,14 @@ export const definition: CommandDefinition = {
                 verbose,
                 (completed, total, bucketName) => {
                     progress.setProgress(completed, `Searching ${bucketName}`);
+                },
+                (current, total) => {
+                    if (!postProcessingStarted) {
+                        postProcessingStarted = true;
+                        // Reset progress bar for post-processing phase
+                        progress.reset(total, "Processing results");
+                    }
+                    progress.setProgress(current, "Processing results");
                 }
             );
 

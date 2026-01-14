@@ -89,13 +89,24 @@ export class ProgressBar {
         }
     }
 
+    reset(newTotal: number, newMessage?: string) {
+        this.total = newTotal;
+        this.current = 0;
+        if (newMessage) {
+            this.currentStep = newMessage;
+        }
+        if (this.running) {
+            this.render();
+        }
+    }
+
     private render() {
         const percent = this.total > 0 ? this.current / this.total : 0;
         const filled = Math.round(percent * this.barWidth);
         const empty = this.barWidth - filled;
 
         const filledBar = "=".repeat(filled);
-        const emptyBar = "-".repeat(empty);
+        const emptyBar = " ".repeat(empty);
         const bar = `[${filledBar}${emptyBar}]`;
 
         const counter = `${this.current}/${this.total}`;

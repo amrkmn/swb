@@ -22,9 +22,15 @@ export interface SearchResult {
 /**
  * Mark results with installation status
  */
-function markInstalledApps(results: SearchResult[]): SearchResult[] {
+function markInstalledApps(
+    results: SearchResult[],
+    onProgress?: (current: number, total: number) => void
+): SearchResult[] {
     const installedApps = listInstalledApps();
     const installedMap = new Map<string, { bucket?: string; scope: string }>();
+
+    const total = installedApps.length;
+    let current = 0;
 
     for (const app of installedApps) {
         const manifest = findInstalledManifest(app.name);
@@ -32,6 +38,12 @@ function markInstalledApps(results: SearchResult[]): SearchResult[] {
             bucket: manifest?.bucket,
             scope: app.scope,
         });
+
+        current++;
+        // Update progress every 5 apps or on the last app to reduce terminal updates
+        if (current % 5 === 0 || current === total) {
+            onProgress?.(current, total);
+        }
     }
 
     return results.map(result => {
@@ -55,7 +67,8 @@ export async function searchBuckets(
         installedOnly?: boolean;
     } = {},
     isVerbose: boolean = false,
-    onProgress?: (completed: number, total: number, bucketName: string) => void
+    onProgress?: (completed: number, total: number, bucketName: string) => void,
+    onPostProcessing?: (current: number, total: number) => void
 ): Promise<SearchResult[]> {
     const startTime = performance.now();
 
@@ -93,7 +106,7 @@ export async function searchBuckets(
 
     // Mark installed apps
     const installedStartTime = performance.now();
-    results = markInstalledApps(results);
+    results = markInstalledApps(results, onPostProcessing);
     const installedTime = Math.round(performance.now() - installedStartTime);
 
     if (isVerbose) {
