@@ -166,7 +166,7 @@ async function main() {
     } catch {
         // File doesn't exist, create header
         existingContent =
-            "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n";
+            "# Changelog\n\nAll notable changes to this project will be documented in this file.\n";
     }
 
     // Prepend new changelog entry
@@ -176,8 +176,8 @@ async function main() {
         const lines = existingContent.split("\n");
         const headerEndIndex = lines.findIndex(line => line.startsWith("## ["));
         if (headerEndIndex !== -1) {
-            // Insert before first version entry
-            lines.splice(headerEndIndex, 0, changelog + "\n");
+            // Insert before first version entry with delimiter above it
+            lines.splice(headerEndIndex, 0, "", changelog, "", "---");
             newContent = lines.join("\n");
         } else {
             // No existing entries, append to end
