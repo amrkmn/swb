@@ -50,36 +50,45 @@ async function main() {
         console.log("🔍 Dry run mode - no changes will be made");
         console.log("");
         console.log("Would perform:");
-        console.log(`  1. Update package.json version to ${newVersion}`);
-        console.log("  2. Build the project");
-        console.log("  3. Commit version bump");
-        console.log(`  4. Create git tag v${newVersion}`);
-        console.log("  5. Push to remote (triggers CI release workflow)");
+        console.log("  1. Check code formatting");
+        console.log(`  2. Update package.json version to ${newVersion}`);
+        console.log("  3. Build the project");
+        console.log("  4. Commit version bump");
+        console.log(`  5. Create git tag v${newVersion}`);
+        console.log("  6. Push to remote (triggers CI release workflow)");
         process.exit(0);
     }
 
-    // Step 1: Update package.json version
+    // Step 1: Check code formatting
+    console.log("🎨 Checking code formatting...");
+    try {
+        await $`bun run format:check`.quiet();
+        console.log("✓ Code formatting is correct");
+    } catch (err) {
+        console.error("❌ Code formatting check failed!");
+        console.error("   Please run 'bun run format' to fix formatting issues.");
+        process.exit(1);
+    }
+
+    // Step 2: Update package.json version
     console.log(`📝 Updating version to ${newVersion}...`);
     packageJson.version = newVersion;
     await Bun.write(packageJsonFile, JSON.stringify(packageJson, null, 4) + "\n");
 
-    console.log("🎨 Formatting code...");
-    await $`bun run format`.quiet();
-
-    // Step 2: Build the project with SWB_VERSION set
+    // Step 3: Build the project with SWB_VERSION set
     console.log("🔨 Building...");
     await $`SWB_VERSION=${newVersion} bun run build`;
 
-    // Step 3: Commit version bump
+    // Step 4: Commit version bump
     console.log("📌 Committing version bump...");
     await $`git add package.json`;
     await $`git commit -m ${"chore(release): bump version to " + newVersion}`;
 
-    // Step 4: Create git tag
+    // Step 5: Create git tag
     console.log(`🏷️  Creating tag v${newVersion}...`);
     await $`git tag ${"v" + newVersion}`;
 
-    // Step 5: Push to remote (triggers CI release workflow)
+    // Step 6: Push to remote (triggers CI release workflow)
     console.log("🚀 Pushing to remote...");
     await $`git push`;
     await $`git push --tags`;
