@@ -1,5 +1,5 @@
 /**
- * Bucket update subcommand - Update installed buckets in parallel with in-place progress
+ * Bucket update subcommand - Update installed buckets in parallel with animated progress
  */
 
 import type { ParsedArgs } from "src/lib/parser.ts";
@@ -19,6 +19,16 @@ interface BucketProgress {
     status: "pending" | "updating" | "updated" | "up-to-date" | "failed";
     message: string;
     commits?: string[];
+}
+
+let animationFrame = 0;
+
+/**
+ * Get animated dots for updating status
+ */
+function getAnimatedDots(): string {
+    const dots = [".  ", ".. ", "..."];
+    return dots[animationFrame % dots.length];
 }
 
 /**
@@ -46,6 +56,7 @@ function displayProgress(buckets: BucketProgress[], isInitial: boolean = false):
             case "updating":
                 icon = "🔄";
                 statusColor = yellow;
+                statusText = `Updating${getAnimatedDots()}`;
                 break;
             case "updated":
                 icon = "✅";
@@ -69,7 +80,7 @@ function displayProgress(buckets: BucketProgress[], isInitial: boolean = false):
 }
 
 /**
- * Update bucket(s) using parallel workers with in-place progress
+ * Update bucket(s) using parallel workers with animated progress
  */
 export async function handler(args: ParsedArgs): Promise<number> {
     try {
@@ -103,6 +114,9 @@ export async function handler(args: ParsedArgs): Promise<number> {
             message: "Waiting...",
         }));
 
+        // Reset animation frame
+        animationFrame = 0;
+
         // Display initial progress
         displayProgress(bucketProgress, true);
 
@@ -110,6 +124,15 @@ export async function handler(args: ParsedArgs): Promise<number> {
         const workerUrl = getWorkerUrl("bucket-update");
         const workers: Worker[] = [];
         const results: BucketUpdateResult[] = [];
+
+        // Animate progress while updates are running
+        const animationInterval = setInterval(() => {
+            const hasUpdating = bucketProgress.some(b => b.status === "updating");
+            if (hasUpdating) {
+                animationFrame++;
+                displayProgress(bucketProgress);
+            }
+        }, 300); // Update every 300ms
 
         // Create promise for each bucket
         const promises = bucketsToUpdate.map((name, index) => {
@@ -166,6 +189,12 @@ export async function handler(args: ParsedArgs): Promise<number> {
 
         // Wait for all workers to complete
         const bucketResults = await Promise.all(promises);
+
+        // Stop animation
+        clearInterval(animationInterval);
+
+        // Display final progress
+        displayProgress(bucketProgress);
 
         // Filter out nulls and collect results
         for (const result of bucketResults) {
