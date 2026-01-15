@@ -48,6 +48,44 @@ swb list [filter]      # List installed packages
 swb which <command>    # Find executable locations with shim resolution
 ```
 
+### Bucket Management
+
+Buckets are repositories containing app manifests. SWB provides powerful bucket management with parallel operations.
+
+```bash
+# List installed buckets
+swb bucket list              # Show all installed buckets with metadata
+swb bucket list --json       # Output in JSON format
+
+# Add buckets
+swb bucket add extras        # Add a known bucket
+swb bucket add mybucket https://github.com/user/bucket  # Add from URL
+
+# Remove buckets
+swb bucket remove extras --force   # Remove a bucket (requires --force)
+swb bucket rm extras -f            # Short alias
+
+# Discover buckets
+swb bucket known             # List all officially recognized buckets
+swb bucket known --json      # Output in JSON format
+
+# Update buckets
+swb bucket update            # Update all buckets in parallel
+swb bucket update extras     # Update specific bucket
+swb bucket update --changelog # Show commit messages for updates
+
+# Find unused buckets
+swb bucket unused            # List buckets with no installed apps
+swb bucket unused --json     # Output in JSON format
+```
+
+**Features:**
+
+- Parallel operations using web workers for maximum performance
+- Individual progress display for each bucket during updates
+- Full compatibility with Scoop bucket structure
+- Supports both user and global scopes with `--global` flag
+
 ### System Management
 
 ```bash
