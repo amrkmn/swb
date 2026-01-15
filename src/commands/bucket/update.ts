@@ -2,17 +2,17 @@
  * Bucket update subcommand - Update installed buckets in parallel with animated progress
  */
 
+import { bucketExists, getAllBuckets } from "src/lib/buckets.ts";
 import type { ParsedArgs } from "src/lib/parser.ts";
-import { error, log, newline } from "src/utils/logger.ts";
-import { getAllBuckets, bucketExists } from "src/lib/buckets.ts";
-import { getWorkerUrl } from "src/lib/workers/index.ts";
 import type { InstallScope } from "src/lib/paths.ts";
 import type {
     BucketUpdateJob,
-    BucketUpdateResult,
     BucketUpdateResponse,
+    BucketUpdateResult,
 } from "src/lib/workers/bucket-update.ts";
+import { getWorkerUrl } from "src/lib/workers/index.ts";
 import { cyan, dim, green, red, yellow } from "src/utils/colors.ts";
+import { error, log, newline } from "src/utils/logger.ts";
 
 interface BucketProgress {
     name: string;

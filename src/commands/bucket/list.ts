@@ -2,18 +2,18 @@
  * Bucket list subcommand - Display installed buckets with metadata
  */
 
-import type { ParsedArgs } from "src/lib/parser.ts";
-import { error, log, newline } from "src/utils/logger.ts";
 import { getAllBuckets } from "src/lib/buckets.ts";
-import { getWorkerUrl } from "src/lib/workers/index.ts";
+import type { ParsedArgs } from "src/lib/parser.ts";
 import type { InstallScope } from "src/lib/paths.ts";
 import type {
     BucketInfoJob,
-    BucketInfoResult,
     BucketInfoResponse,
+    BucketInfoResult,
 } from "src/lib/workers/bucket-info.ts";
+import { getWorkerUrl } from "src/lib/workers/index.ts";
 import { bold, cyan, dim, green } from "src/utils/colors.ts";
 import { formatLineColumns } from "src/utils/helpers.ts";
+import { error, log, newline } from "src/utils/logger.ts";
 
 /**
  * Format date to YYYY-MM-DD HH:MM:SS

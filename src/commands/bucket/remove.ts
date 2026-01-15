@@ -2,11 +2,11 @@
  * Bucket remove subcommand - Remove an installed bucket
  */
 
-import type { ParsedArgs } from "src/lib/parser.ts";
-import { error, log, warn, success } from "src/utils/logger.ts";
-import { bucketExists, getBucketPath } from "src/lib/buckets.ts";
-import type { InstallScope } from "src/lib/paths.ts";
 import { rmSync } from "node:fs";
+import { bucketExists, getBucketPath } from "src/lib/buckets.ts";
+import type { ParsedArgs } from "src/lib/parser.ts";
+import type { InstallScope } from "src/lib/paths.ts";
+import { error, log, success, warn } from "src/utils/logger.ts";
 
 /**
  * Remove a bucket

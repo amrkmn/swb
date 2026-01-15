@@ -2,13 +2,13 @@
  * Bucket add subcommand - Add a new bucket repository
  */
 
-import type { ParsedArgs } from "src/lib/parser.ts";
-import { error, log, success } from "src/utils/logger.ts";
-import { bucketExists, getBucketPath, getBucketManifestCount } from "src/lib/buckets.ts";
+import { getKnownBucket } from "src/utils/known-buckets.ts";
+import { bucketExists, getBucketManifestCount, getBucketPath } from "src/lib/buckets.ts";
 import { clone } from "src/lib/git.ts";
-import { getKnownBucket, isKnownBucket } from "src/data/known-buckets.ts";
-import { ProgressBar } from "src/utils/loader.ts";
+import type { ParsedArgs } from "src/lib/parser.ts";
 import type { InstallScope } from "src/lib/paths.ts";
+import { ProgressBar } from "src/utils/loader.ts";
+import { error, log, success } from "src/utils/logger.ts";
 
 /**
  * Add a new bucket

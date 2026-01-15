@@ -6,11 +6,11 @@
 import type { CommandDefinition, ParsedArgs } from "src/lib/parser.ts";
 import { error, log } from "src/utils/logger.ts";
 import * as add from "./add.ts";
+import * as known from "./known.ts";
 import * as list from "./list.ts";
 import * as remove from "./remove.ts";
-import * as known from "./known.ts";
-import * as update from "./update.ts";
 import * as unused from "./unused.ts";
+import * as update from "./update.ts";
 
 /**
  * Show bucket command help

@@ -2,12 +2,12 @@
  * Bucket unused subcommand - Find buckets without installed packages
  */
 
-import { readdirSync, existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
-import type { ParsedArgs } from "src/lib/parser.ts";
-import { log } from "src/utils/logger.ts";
 import { getAllBuckets } from "src/lib/buckets.ts";
+import type { ParsedArgs } from "src/lib/parser.ts";
 import { resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
+import { log } from "src/utils/logger.ts";
 
 /**
  * Get all installed apps and their bucket source
