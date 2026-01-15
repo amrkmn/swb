@@ -1,5 +1,5 @@
 /**
- * Bucket update subcommand - Update installed buckets in parallel with individual progress
+ * Bucket update subcommand - Update installed buckets in parallel with in-place progress
  */
 
 import type { ParsedArgs } from "src/lib/parser.ts";
@@ -22,14 +22,20 @@ interface BucketProgress {
 }
 
 /**
- * Display multi-bucket progress
+ * Display multi-bucket progress (in-place update)
  */
-function displayProgress(buckets: BucketProgress[]): void {
-    // Clear previous output
-    process.stdout.write("\x1b[2J\x1b[H");
+function displayProgress(buckets: BucketProgress[], isInitial: boolean = false): void {
+    if (!isInitial && buckets.length > 0) {
+        // Move cursor up to overwrite previous progress
+        // +2 for header and blank line
+        process.stdout.write(`\x1b[${buckets.length + 2}A`);
+    }
 
-    log("Updating buckets:\n");
+    // Clear and write header
+    process.stdout.write("\rUpdating buckets:\x1b[K\n");
+    process.stdout.write("\r\x1b[K\n");
 
+    // Write each bucket line
     for (const bucket of buckets) {
         const paddedName = bucket.name.padEnd(20);
         let icon = "⏳";
@@ -57,12 +63,13 @@ function displayProgress(buckets: BucketProgress[]): void {
                 break;
         }
 
-        log(`${icon} ${cyan(paddedName)} ${statusColor(statusText)}`);
+        // Clear line and write bucket status
+        process.stdout.write(`\r${icon} ${cyan(paddedName)} ${statusColor(statusText)}\x1b[K\n`);
     }
 }
 
 /**
- * Update bucket(s) using parallel workers with individual progress
+ * Update bucket(s) using parallel workers with in-place progress
  */
 export async function handler(args: ParsedArgs): Promise<number> {
     try {
@@ -97,17 +104,12 @@ export async function handler(args: ParsedArgs): Promise<number> {
         }));
 
         // Display initial progress
-        displayProgress(bucketProgress);
+        displayProgress(bucketProgress, true);
 
         // Use workers to update buckets in parallel
         const workerUrl = getWorkerUrl("bucket-update");
         const workers: Worker[] = [];
         const results: BucketUpdateResult[] = [];
-
-        // Update progress display interval
-        const progressInterval = setInterval(() => {
-            displayProgress(bucketProgress);
-        }, 100);
 
         // Create promise for each bucket
         const promises = bucketsToUpdate.map((name, index) => {
@@ -116,9 +118,10 @@ export async function handler(args: ParsedArgs): Promise<number> {
 
                 const job: BucketUpdateJob = { name, scope, showChangelog };
 
-                // Mark as updating
+                // Mark as updating and display
                 bucketProgress[index].status = "updating";
                 bucketProgress[index].message = "Updating...";
+                displayProgress(bucketProgress);
 
                 worker.onmessage = (event: MessageEvent<BucketUpdateResponse>) => {
                     const response = event.data;
@@ -134,10 +137,14 @@ export async function handler(args: ParsedArgs): Promise<number> {
                             bucketProgress[index].message = result.error || "Unknown error";
                         }
 
+                        // Display updated progress
+                        displayProgress(bucketProgress);
+
                         resolve(result);
                     } else {
                         bucketProgress[index].status = "failed";
                         bucketProgress[index].message = "Unknown error";
+                        displayProgress(bucketProgress);
                         resolve(null);
                     }
 
@@ -147,6 +154,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
                 worker.onerror = err => {
                     bucketProgress[index].status = "failed";
                     bucketProgress[index].message = "Worker error";
+                    displayProgress(bucketProgress);
                     worker.terminate();
                     resolve(null);
                 };
@@ -158,12 +166,6 @@ export async function handler(args: ParsedArgs): Promise<number> {
 
         // Wait for all workers to complete
         const bucketResults = await Promise.all(promises);
-
-        // Stop progress updates
-        clearInterval(progressInterval);
-
-        // Display final progress
-        displayProgress(bucketProgress);
 
         // Filter out nulls and collect results
         for (const result of bucketResults) {
