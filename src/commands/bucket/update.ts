@@ -9,7 +9,7 @@ import type {
     BucketUpdateJob,
     BucketUpdateResponse,
     BucketUpdateResult,
-} from "src/lib/workers/bucket-update.ts";
+} from "src/lib/workers/bucket/update.ts";
 import { getWorkerUrl } from "src/lib/workers/index.ts";
 import { cyan, dim, green, red, yellow } from "src/utils/colors.ts";
 import { error, log, newline } from "src/utils/logger.ts";

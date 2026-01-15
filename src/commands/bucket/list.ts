@@ -9,7 +9,7 @@ import type {
     BucketInfoJob,
     BucketInfoResponse,
     BucketInfoResult,
-} from "src/lib/workers/bucket-info.ts";
+} from "src/lib/workers/bucket/info.ts";
 import { getWorkerUrl } from "src/lib/workers/index.ts";
 import { bold, cyan, dim, green } from "src/utils/colors.ts";
 import { formatLineColumns } from "src/utils/helpers.ts";
