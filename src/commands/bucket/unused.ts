@@ -62,7 +62,7 @@ function displayUnusedBuckets(buckets: string[]): void {
     if (buckets.length === 0) return;
 
     // Prepare table data with header
-    const tableData: string[][] = [["Name"].map(h => bold(green(h)))];
+    const tableData: string[][] = [["Unused bucket"].map(h => bold(green(h)))];
 
     for (const bucket of buckets) {
         tableData.push([cyan(bucket)]);
