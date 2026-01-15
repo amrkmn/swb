@@ -6,6 +6,7 @@
 import type { CommandDefinition } from "src/lib/parser.ts";
 
 // Import all command definitions
+import { definition as bucketCommand } from "src/commands/bucket/index.ts";
 import { definition as cleanupCommand } from "src/commands/cleanup.ts";
 import { definition as configCommand } from "src/commands/config.ts";
 import { definition as infoCommand } from "src/commands/info.ts";
@@ -17,6 +18,7 @@ import { definition as whichCommand } from "src/commands/which.ts";
 
 // Static command registry for easy access and bundling
 export const commandRegistry: Record<string, CommandDefinition> = {
+    bucket: bucketCommand,
     cleanup: cleanupCommand,
     config: configCommand,
     info: infoCommand,
