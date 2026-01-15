@@ -28,19 +28,20 @@ async function getInstalledAppBuckets(scope: InstallScope): Promise<Set<string>>
             // Skip current/scoop meta directories
             if (app === "scoop" || app === "current") continue;
 
-            const manifestPath = path.join(appsDir, app, "current", "manifest.json");
+            // Check install.json for bucket information
+            const installPath = path.join(appsDir, app, "current", "install.json");
 
-            if (existsSync(manifestPath)) {
+            if (existsSync(installPath)) {
                 try {
-                    const manifestContent = Bun.file(manifestPath);
-                    const manifest = await manifestContent.json();
+                    const installContent = Bun.file(installPath);
+                    const installData = await installContent.json();
 
-                    // Extract bucket from manifest metadata
-                    if (manifest.bucket) {
-                        buckets.add(manifest.bucket);
+                    // Extract bucket from install.json
+                    if (installData.bucket) {
+                        buckets.add(installData.bucket);
                     }
                 } catch {
-                    // Skip if manifest is invalid
+                    // Skip if install.json is invalid
                     continue;
                 }
             }
@@ -56,8 +57,8 @@ async function getInstalledAppBuckets(scope: InstallScope): Promise<Set<string>>
  * Find unused buckets
  */
 export async function handler(args: ParsedArgs): Promise<number> {
-    const scope: InstallScope = args.global.global ? "global" : "user";
-    const json = args.flags.json || false;
+    const scope: InstallScope = args.flags.global ? "global" : "user";
+    const json = args.flags.json || args.flags.j || false;
 
     const allBuckets = getAllBuckets(scope);
 
@@ -65,7 +66,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
         if (!json) {
             log("No buckets installed.");
         } else {
-            console.log(JSON.stringify([]));
+            log(JSON.stringify([]));
         }
         return 0;
     }
@@ -74,7 +75,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
     const unusedBuckets = allBuckets.filter(bucket => !usedBuckets.has(bucket));
 
     if (json) {
-        console.log(JSON.stringify(unusedBuckets, null, 2));
+        log(JSON.stringify(unusedBuckets, null, 2));
         return 0;
     }
 
@@ -107,8 +108,8 @@ Usage: swb bucket unused [options]
 Find buckets that have no packages installed from them.
 
 Options:
-  --json     Output in JSON format
-  --global   Check global buckets instead of user buckets
+  -j, --json    Output in JSON format
+  --global      Check global buckets instead of user buckets
 
 Examples:
   swb bucket unused
