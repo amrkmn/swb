@@ -47,8 +47,8 @@ self.onmessage = async (event: MessageEvent<BucketUpdateJob>) => {
             return;
         }
 
-        // Get commits before pulling
-        const commitsBefore = showChangelog ? await getCommitsSinceRemote(bucketPath) : [];
+        // Get commits before pulling (always check to determine status)
+        const commitsBefore = await getCommitsSinceRemote(bucketPath);
 
         // Pull updates
         await pull(bucketPath);
