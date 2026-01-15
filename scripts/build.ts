@@ -20,7 +20,12 @@ console.log(`Building SWB v${version} (${variant})...`);
 const bunfsRoot = "B:/~BUN/root";
 
 const result = await Bun.build({
-    entrypoints: ["src/cli.ts", "src/lib/workers/search.ts", "src/lib/workers/status.ts"],
+    entrypoints: [
+        "src/cli.ts",
+        "src/lib/workers/search.ts",
+        "src/lib/workers/status.ts",
+        "src/lib/workers/bucket-info.ts",
+    ],
     minify: true,
     compile: {
         target: target,

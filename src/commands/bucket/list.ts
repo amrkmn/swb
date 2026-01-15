@@ -4,24 +4,22 @@
 
 import type { ParsedArgs } from "src/lib/parser.ts";
 import { error, log } from "src/utils/logger.ts";
-import { getAllBuckets, getBucketPath, getBucketManifestCount } from "src/lib/buckets.ts";
-import { getRemoteUrl, getLastCommitDate } from "src/lib/git.ts";
+import { getAllBuckets } from "src/lib/buckets.ts";
+import { getWorkerUrl } from "src/lib/workers/index.ts";
 import type { InstallScope } from "src/lib/paths.ts";
-
-interface BucketInfo {
-    name: string;
-    source: string;
-    updated: string;
-    manifests: number;
-}
+import type {
+    BucketInfoJob,
+    BucketInfoResult,
+    BucketInfoResponse,
+} from "src/lib/workers/bucket-info.ts";
 
 /**
- * List all installed buckets
+ * List all installed buckets using parallel workers
  */
 export async function handler(args: ParsedArgs): Promise<number> {
     try {
         const json = args.flags.json || false;
-        const scope: InstallScope = args.global.global ? "global" : "user";
+        const scope: InstallScope = args.flags.global ? "global" : "user";
 
         const bucketNames = getAllBuckets(scope);
 
@@ -34,25 +32,56 @@ export async function handler(args: ParsedArgs): Promise<number> {
             return 0;
         }
 
-        const buckets: BucketInfo[] = [];
+        // Use workers to gather bucket info in parallel
+        const workerUrl = getWorkerUrl("bucket-info");
+        const workers: Worker[] = [];
+        const results: BucketInfoResult[] = [];
+        let completed = 0;
 
-        for (const name of bucketNames) {
-            const bucketPath = getBucketPath(name, scope);
-            const source = (await getRemoteUrl(bucketPath)) || "unknown";
-            const lastCommit = await getLastCommitDate(bucketPath);
-            const updated = lastCommit ? lastCommit.toISOString().split("T")[0] : "unknown";
-            const manifests = getBucketManifestCount(bucketPath);
+        // Create promise for each bucket
+        const promises = bucketNames.map(name => {
+            return new Promise<BucketInfoResult | null>((resolve, reject) => {
+                const worker = new Worker(workerUrl);
 
-            buckets.push({
-                name,
-                source,
-                updated,
-                manifests,
+                const job: BucketInfoJob = { name, scope };
+
+                worker.onmessage = (event: MessageEvent<BucketInfoResponse>) => {
+                    const response = event.data;
+
+                    if (response.type === "result" && response.data) {
+                        resolve(response.data);
+                    } else {
+                        // Skip buckets with errors
+                        resolve(null);
+                    }
+
+                    worker.terminate();
+                    completed++;
+                };
+
+                worker.onerror = err => {
+                    worker.terminate();
+                    completed++;
+                    resolve(null);
+                };
+
+                worker.postMessage(job);
+                workers.push(worker);
             });
+        });
+
+        // Wait for all workers to complete
+        const bucketResults = await Promise.all(promises);
+
+        // Filter out nulls (failed buckets)
+        for (const result of bucketResults) {
+            if (result) {
+                results.push(result);
+            }
         }
 
         if (json) {
-            console.log(JSON.stringify(buckets, null, 2));
+            console.log(JSON.stringify(results, null, 2));
         } else {
             // Display as table
             log("");
@@ -69,7 +98,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
             log(`  ${"─".repeat(20)} ${"─".repeat(50)} ${"─".repeat(12)} ${"─".repeat(10)}`);
 
             // Rows
-            for (const bucket of buckets) {
+            for (const bucket of results) {
                 const name = bucket.name.padEnd(20);
                 const source = bucket.source.padEnd(50);
                 const updated = bucket.updated.padEnd(12);

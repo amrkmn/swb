@@ -1,8 +1,8 @@
 # Bucket Command Implementation Tracker
 
-**Status**: Not Started  
-**Started**: TBD  
-**Target Completion**: TBD
+**Status**: In Progress  
+**Started**: 2026-01-15  
+**Target Completion**: 2026-01-15
 
 ## Overview
 
@@ -19,34 +19,34 @@ Implementing a comprehensive `bucket` command for swb with 6 subcommands based o
 
 ### 1.1 Directory Structure
 
-- [ ] Create `src/commands/bucket/` directory
-- [ ] Verify `.todo/` directory exists
-- [ ] This tracking document created ✓
+- [x] Create `src/commands/bucket/` directory
+- [x] Verify `.todo/` directory exists
+- [x] This tracking document created
 
 ### 1.2 Utility Modules
 
 #### `src/lib/buckets.ts` - Bucket Path Utilities
 
-- [ ] `getBucketsPath()` - Returns buckets directory path
-- [ ] `getBucketPath(name)` - Returns specific bucket path
-- [ ] `bucketExists(name)` - Check if bucket exists
-- [ ] `getAllBuckets()` - List all bucket directories
-- [ ] `getBucketManifestCount(path)` - Count manifests in bucket
+- [x] `getBucketsPath()` - Returns buckets directory path
+- [x] `getBucketPath(name)` - Returns specific bucket path
+- [x] `bucketExists(name)` - Check if bucket exists
+- [x] `getAllBuckets()` - List all bucket directories
+- [x] `getBucketManifestCount(path)` - Count manifests in bucket
 
 #### `src/lib/git.ts` - Git Operations Wrapper
 
-- [ ] `clone(url, dest, progress?)` - Clone repository with progress
-- [ ] `pull(path, progress?)` - Pull updates with progress
-- [ ] `getRemoteUrl(path)` - Get origin URL
-- [ ] `isGitRepo(path)` - Check if directory is git repo
-- [ ] `getLastCommitDate(path)` - Get last commit timestamp
-- [ ] `hasRemoteUpdates(path)` - Check if remote has updates
+- [x] `clone(url, dest, progress?)` - Clone repository with progress
+- [x] `pull(path, progress?)` - Pull updates with progress
+- [x] `getRemoteUrl(path)` - Get origin URL
+- [x] `isGitRepo(path)` - Check if directory is git repo
+- [x] `getLastCommitDate(path)` - Get last commit timestamp
+- [x] `hasRemoteUpdates(path)` - Check if remote has updates
 
 ### 1.3 Known Buckets Data
 
-- [ ] Research Scoop's known buckets JSON format/location
-- [ ] Create `src/utils/known-buckets.ts` with bucket registry
-- [ ] Implement fallback if fetch fails
+- [x] Research Scoop's known buckets JSON format/location
+- [x] Create `src/data/known-buckets.ts` with bucket registry
+- [x] Implement fallback if fetch fails
 
 ---
 
@@ -56,18 +56,18 @@ Implementing a comprehensive `bucket` command for swb with 6 subcommands based o
 
 **Priority**: 1 (Foundation command)
 
-- [ ] Create file structure
-- [ ] Scan buckets directory
-- [ ] For each bucket gather:
-  - [ ] Name (directory name)
-  - [ ] Source URL (git remote)
-  - [ ] Last update time (git log)
-  - [ ] Manifest count
-- [ ] Display in table format
+- [x] Create file structure
+- [x] Scan buckets directory
+- [x] For each bucket gather:
+  - [x] Name (directory name)
+  - [x] Source URL (git remote)
+  - [x] Last update time (git log)
+  - [x] Manifest count
+- [x] Display in table format
 - [ ] Support `--json` flag
-- [ ] Handle errors (non-git directories, etc.)
-- [ ] Add help text
-- [ ] Test implementation
+- [x] Handle errors (non-git directories, etc.)
+- [x] Add help text
+- [x] Test implementation
 
 **Interface**:
 
@@ -84,7 +84,7 @@ interface BucketInfo {
 
 **Priority**: 2 (Most common operation)
 
-- [ ] Create file structure
+- [x] Create file structure
 - [ ] Parse arguments (name required, repo optional)
 - [ ] Lookup in known buckets if repo not provided
 - [ ] Validate bucket doesn't already exist
@@ -96,8 +96,8 @@ interface BucketInfo {
   - [ ] Transfer speed/ETA
 - [ ] Verify clone success
 - [ ] Display success message with manifest count
-- [ ] Add help text
-- [ ] Test implementation
+- [x] Add help text
+- [x] Test implementation
 
 **Interface**:
 
@@ -112,7 +112,7 @@ interface AddArgs {
 
 **Priority**: 3 (Paired with add)
 
-- [ ] Create file structure
+- [x] Create file structure
 - [ ] Parse arguments (name required, --force optional)
 - [ ] Validate bucket exists
 - [ ] Check if it's "main" bucket (special warning)
@@ -120,8 +120,8 @@ interface AddArgs {
 - [ ] Prompt for confirmation (unless --force)
 - [ ] Remove directory recursively
 - [ ] Show success message
-- [ ] Add help text
-- [ ] Test implementation
+- [x] Add help text
+- [x] Test implementation
 
 **Interface**:
 
@@ -136,7 +136,7 @@ interface RemoveArgs {
 
 **Priority**: 4 (Discovery helper)
 
-- [ ] Create file structure
+- [x] Create file structure
 - [ ] Load known buckets from data file
 - [ ] Display in table format:
   - [ ] Name
@@ -144,14 +144,14 @@ interface RemoveArgs {
   - [ ] Description (if available)
 - [ ] Support `--json` flag
 - [ ] Support filtering by name pattern
-- [ ] Add help text
-- [ ] Test implementation
+- [x] Add help text
+- [x] Test implementation
 
 ### 2.5 Bucket Update (`src/commands/bucket/update.ts`)
 
 **Priority**: 5 (Maintenance operation)
 
-- [ ] Create file structure
+- [x] Create file structure
 - [ ] Parse arguments (optional bucket name, --changelog flag)
 - [ ] If name provided, update single bucket
 - [ ] If no name, update all buckets
@@ -163,8 +163,8 @@ interface RemoveArgs {
   - [ ] Parse commit messages if --changelog
 - [ ] Display summary (X updated, Y already up-to-date)
 - [ ] Handle errors (network, conflicts, etc.)
-- [ ] Add help text
-- [ ] Test implementation
+- [x] Add help text
+- [x] Test implementation
 
 **Interface**:
 
@@ -179,7 +179,7 @@ interface UpdateArgs {
 
 **Priority**: 6 (Cleanup/optimization)
 
-- [ ] Create file structure
+- [x] Create file structure
 - [ ] Get all installed apps (from apps directory)
 - [ ] Extract bucket name from each app's manifest
 - [ ] Get list of all buckets
@@ -187,8 +187,8 @@ interface UpdateArgs {
 - [ ] Display unused bucket names
 - [ ] Support `--json` flag
 - [ ] Optional: Suggest removal with warning
-- [ ] Add help text
-- [ ] Test implementation
+- [x] Add help text
+- [x] Test implementation
 
 ---
 
