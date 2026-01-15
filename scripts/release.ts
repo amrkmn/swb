@@ -74,6 +74,13 @@ async function main() {
     }
     console.log("");
 
+    // Update package.json version
+    console.log("Updating package.json version...");
+    const packageJson = await Bun.file("package.json").json();
+    packageJson.version = newVersion.replace("v", "");
+    await Bun.write("package.json", JSON.stringify(packageJson, null, 4) + "\n");
+    console.log("");
+
     // Run tests and build
     console.log("Running tests...");
     await $`bun test`;
