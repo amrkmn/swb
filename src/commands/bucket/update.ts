@@ -1,20 +1,25 @@
 /**
- * Bucket update subcommand - Update installed buckets
+ * Bucket update subcommand - Update installed buckets in parallel
  */
 
 import type { ParsedArgs } from "src/lib/parser.ts";
 import { error, log, success } from "src/utils/logger.ts";
-import { getAllBuckets, getBucketPath, bucketExists } from "src/lib/buckets.ts";
-import { pull, isGitRepo, getCommitsSinceRemote } from "src/lib/git.ts";
-import { Loading } from "src/utils/loader.ts";
+import { getAllBuckets, bucketExists } from "src/lib/buckets.ts";
+import { getWorkerUrl } from "src/lib/workers/index.ts";
 import type { InstallScope } from "src/lib/paths.ts";
+import type {
+    BucketUpdateJob,
+    BucketUpdateResult,
+    BucketUpdateResponse,
+} from "src/lib/workers/bucket-update.ts";
+import { Loading } from "src/utils/loader.ts";
 
 /**
- * Update bucket(s)
+ * Update bucket(s) using parallel workers
  */
 export async function handler(args: ParsedArgs): Promise<number> {
     try {
-        const scope: InstallScope = args.global.global ? "global" : "user";
+        const scope: InstallScope = args.flags.global ? "global" : "user";
         const bucketName = args.args[0];
         const showChangelog = args.flags.changelog || false;
 
@@ -40,50 +45,76 @@ export async function handler(args: ParsedArgs): Promise<number> {
         log(`Updating ${bucketsToUpdate.length} bucket(s)...`);
         log("");
 
+        // Use workers to update buckets in parallel
+        const workerUrl = getWorkerUrl("bucket-update");
+        const workers: Worker[] = [];
+        const results: BucketUpdateResult[] = [];
+
+        // Show loading spinner while updates are in progress
+        const loader = new Loading("Updating buckets");
+        loader.start();
+
+        // Create promise for each bucket
+        const promises = bucketsToUpdate.map(name => {
+            return new Promise<BucketUpdateResult | null>((resolve, reject) => {
+                const worker = new Worker(workerUrl);
+
+                const job: BucketUpdateJob = { name, scope, showChangelog };
+
+                worker.onmessage = (event: MessageEvent<BucketUpdateResponse>) => {
+                    const response = event.data;
+
+                    if (response.type === "result" && response.data) {
+                        resolve(response.data);
+                    } else {
+                        resolve(null);
+                    }
+
+                    worker.terminate();
+                };
+
+                worker.onerror = err => {
+                    worker.terminate();
+                    resolve(null);
+                };
+
+                worker.postMessage(job);
+                workers.push(worker);
+            });
+        });
+
+        // Wait for all workers to complete
+        const bucketResults = await Promise.all(promises);
+
+        loader.stop();
+
+        // Filter out nulls and collect results
+        for (const result of bucketResults) {
+            if (result) {
+                results.push(result);
+            }
+        }
+
+        // Display results
         let updated = 0;
         let upToDate = 0;
         let failed = 0;
 
-        for (const name of bucketsToUpdate) {
-            const bucketPath = getBucketPath(name, scope);
-
-            // Check if it's a git repository
-            if (!(await isGitRepo(bucketPath))) {
-                error(`Bucket '${name}' is not a git repository. Skipping.`);
-                failed++;
-                continue;
-            }
-
-            const loader = new Loading(`Updating '${name}'`);
-            loader.start();
-
-            try {
-                // Get commits before pulling
-                const commitsBefore = showChangelog ? await getCommitsSinceRemote(bucketPath) : [];
-
-                // Pull updates
-                await pull(bucketPath);
-
-                loader.stop();
-
-                if (commitsBefore.length > 0) {
-                    success(`✓ Updated '${name}'`);
-                    if (showChangelog) {
-                        log("  Changes:");
-                        for (const commit of commitsBefore) {
-                            log(`    - ${commit}`);
-                        }
+        for (const result of results) {
+            if (result.status === "updated") {
+                success(`✓ Updated '${result.name}'`);
+                if (showChangelog && result.commits && result.commits.length > 0) {
+                    log("  Changes:");
+                    for (const commit of result.commits) {
+                        log(`    - ${commit}`);
                     }
-                    updated++;
-                } else {
-                    log(`  '${name}' is already up-to-date`);
-                    upToDate++;
                 }
-            } catch (err) {
-                loader.stop();
-                error(
-                    `✗ Failed to update '${name}': ${err instanceof Error ? err.message : String(err)}`
-                );
+                updated++;
+            } else if (result.status === "up-to-date") {
+                log(`  '${result.name}' is already up-to-date`);
+                upToDate++;
+            } else if (result.status === "failed") {
+                error(`✗ Failed to update '${result.name}': ${result.error || "Unknown error"}`);
                 failed++;
             }
         }
@@ -107,6 +138,7 @@ export const help = `
 Usage: swb bucket update [name] [options]
 
 Update installed bucket(s) by pulling latest changes from their remote repositories.
+Updates run in parallel for improved performance.
 
 Arguments:
   name   Name of specific bucket to update (optional, updates all if omitted)
