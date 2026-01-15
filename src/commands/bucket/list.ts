@@ -88,7 +88,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
         }
 
         // Use workers to gather bucket info in parallel
-        const workerUrl = getWorkerUrl("bucket-info");
+        const workerUrl = getWorkerUrl("bucket/info");
         const workers: Worker[] = [];
         const results: BucketInfoResult[] = [];
 

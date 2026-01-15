@@ -121,7 +121,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
         displayProgress(bucketProgress, true);
 
         // Use workers to update buckets in parallel
-        const workerUrl = getWorkerUrl("bucket-update");
+        const workerUrl = getWorkerUrl("bucket/update");
         const workers: Worker[] = [];
         const results: BucketUpdateResult[] = [];
 

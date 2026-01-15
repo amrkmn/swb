@@ -24,8 +24,8 @@ const result = await Bun.build({
         "src/cli.ts",
         "src/lib/workers/search.ts",
         "src/lib/workers/status.ts",
-        "src/lib/workers/bucket-info.ts",
-        "src/lib/workers/bucket-update.ts",
+        "src/lib/workers/bucket/info.ts",
+        "src/lib/workers/bucket/update.ts",
     ],
     minify: true,
     compile: {
