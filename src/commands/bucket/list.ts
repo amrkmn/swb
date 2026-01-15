@@ -3,7 +3,7 @@
  */
 
 import type { ParsedArgs } from "src/lib/parser.ts";
-import { error, log } from "src/utils/logger.ts";
+import { error, log, newline } from "src/utils/logger.ts";
 import { getAllBuckets } from "src/lib/buckets.ts";
 import { getWorkerUrl } from "src/lib/workers/index.ts";
 import type { InstallScope } from "src/lib/paths.ts";
@@ -12,22 +12,77 @@ import type {
     BucketInfoResult,
     BucketInfoResponse,
 } from "src/lib/workers/bucket-info.ts";
+import { bold, cyan, dim, green } from "src/utils/colors.ts";
+import { formatLineColumns } from "src/utils/helpers.ts";
+
+/**
+ * Format date to YYYY-MM-DD HH:MM:SS
+ */
+function formatDate(dateStr: string): string {
+    if (dateStr === "unknown") return "";
+    try {
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const seconds = String(date.getSeconds()).padStart(2, "0");
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch {
+        return "";
+    }
+}
+
+/**
+ * Display buckets in table format
+ */
+function displayBucketsList(buckets: BucketInfoResult[]): void {
+    if (buckets.length === 0) return;
+
+    // Prepare table data with header
+    const tableData: string[][] = [
+        ["Name", "Source", "Updated", "Manifests"].map(h => bold(green(h))),
+    ];
+
+    for (const bucket of buckets) {
+        const name = cyan(bucket.name);
+        const source = bucket.source;
+        const updated = formatDate(bucket.updated);
+        const manifests = bucket.manifests.toString();
+
+        tableData.push([name, source, updated, manifests]);
+    }
+
+    const formattedTable = formatLineColumns(tableData, {
+        weights: [1.0, 3.0, 1.5, 0.5],
+    });
+    log(formattedTable);
+}
+
+/**
+ * Display summary line
+ */
+function displayBucketsSummary(total: number): void {
+    newline();
+    log(dim(`${total} bucket${total !== 1 ? "s" : ""} installed`));
+}
 
 /**
  * List all installed buckets using parallel workers
  */
 export async function handler(args: ParsedArgs): Promise<number> {
     try {
-        const json = args.flags.json || false;
+        const json = args.flags.json || args.flags.j || false;
         const scope: InstallScope = args.flags.global ? "global" : "user";
 
         const bucketNames = getAllBuckets(scope);
 
         if (bucketNames.length === 0) {
-            if (!json) {
-                log("No buckets installed.");
+            if (json) {
+                log("[]");
             } else {
-                console.log(JSON.stringify([]));
+                log("No buckets installed.");
             }
             return 0;
         }
@@ -36,7 +91,6 @@ export async function handler(args: ParsedArgs): Promise<number> {
         const workerUrl = getWorkerUrl("bucket-info");
         const workers: Worker[] = [];
         const results: BucketInfoResult[] = [];
-        let completed = 0;
 
         // Create promise for each bucket
         const promises = bucketNames.map(name => {
@@ -56,12 +110,10 @@ export async function handler(args: ParsedArgs): Promise<number> {
                     }
 
                     worker.terminate();
-                    completed++;
                 };
 
                 worker.onerror = err => {
                     worker.terminate();
-                    completed++;
                     resolve(null);
                 };
 
@@ -81,33 +133,16 @@ export async function handler(args: ParsedArgs): Promise<number> {
         }
 
         if (json) {
-            console.log(JSON.stringify(results, null, 2));
+            const jsonOutput = results.map(bucket => ({
+                name: bucket.name,
+                source: bucket.source,
+                updated: bucket.updated,
+                manifests: bucket.manifests,
+            }));
+            log(JSON.stringify(jsonOutput, null, 2));
         } else {
-            // Display as table
-            log("");
-            log("Installed buckets:");
-            log("");
-
-            // Header
-            const nameCol = "Name".padEnd(20);
-            const sourceCol = "Source".padEnd(50);
-            const updatedCol = "Updated".padEnd(12);
-            const manifestsCol = "Manifests";
-
-            log(`  ${nameCol} ${sourceCol} ${updatedCol} ${manifestsCol}`);
-            log(`  ${"─".repeat(20)} ${"─".repeat(50)} ${"─".repeat(12)} ${"─".repeat(10)}`);
-
-            // Rows
-            for (const bucket of results) {
-                const name = bucket.name.padEnd(20);
-                const source = bucket.source.padEnd(50);
-                const updated = bucket.updated.padEnd(12);
-                const manifests = bucket.manifests.toString();
-
-                log(`  ${name} ${source} ${updated} ${manifests}`);
-            }
-
-            log("");
+            displayBucketsList(results);
+            displayBucketsSummary(results.length);
         }
 
         return 0;
@@ -123,8 +158,8 @@ Usage: swb bucket list [options]
 List all installed buckets with their metadata.
 
 Options:
-  --json     Output in JSON format
-  --global   List global buckets instead of user buckets
+  -j, --json    Output in JSON format
+  --global      List global buckets instead of user buckets
 
 Examples:
   swb bucket list
