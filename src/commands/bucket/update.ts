@@ -1,9 +1,9 @@
 /**
- * Bucket update subcommand - Update installed buckets in parallel
+ * Bucket update subcommand - Update installed buckets in parallel with individual progress
  */
 
 import type { ParsedArgs } from "src/lib/parser.ts";
-import { error, log, success } from "src/utils/logger.ts";
+import { error, log, newline } from "src/utils/logger.ts";
 import { getAllBuckets, bucketExists } from "src/lib/buckets.ts";
 import { getWorkerUrl } from "src/lib/workers/index.ts";
 import type { InstallScope } from "src/lib/paths.ts";
@@ -12,10 +12,57 @@ import type {
     BucketUpdateResult,
     BucketUpdateResponse,
 } from "src/lib/workers/bucket-update.ts";
-import { Loading } from "src/utils/loader.ts";
+import { cyan, dim, green, red, yellow } from "src/utils/colors.ts";
+
+interface BucketProgress {
+    name: string;
+    status: "pending" | "updating" | "updated" | "up-to-date" | "failed";
+    message: string;
+    commits?: string[];
+}
 
 /**
- * Update bucket(s) using parallel workers
+ * Display multi-bucket progress
+ */
+function displayProgress(buckets: BucketProgress[]): void {
+    // Clear previous output
+    process.stdout.write("\x1b[2J\x1b[H");
+
+    log("Updating buckets:\n");
+
+    for (const bucket of buckets) {
+        const paddedName = bucket.name.padEnd(20);
+        let icon = "⏳";
+        let statusColor = dim;
+        let statusText = bucket.message;
+
+        switch (bucket.status) {
+            case "updating":
+                icon = "🔄";
+                statusColor = yellow;
+                break;
+            case "updated":
+                icon = "✅";
+                statusColor = green;
+                statusText = "Updated";
+                break;
+            case "up-to-date":
+                icon = "✅";
+                statusColor = dim;
+                statusText = "No updates available";
+                break;
+            case "failed":
+                icon = "❌";
+                statusColor = red;
+                break;
+        }
+
+        log(`${icon} ${cyan(paddedName)} ${statusColor(statusText)}`);
+    }
+}
+
+/**
+ * Update bucket(s) using parallel workers with individual progress
  */
 export async function handler(args: ParsedArgs): Promise<number> {
     try {
@@ -42,31 +89,55 @@ export async function handler(args: ParsedArgs): Promise<number> {
             }
         }
 
-        log(`Updating ${bucketsToUpdate.length} bucket(s)...`);
-        log("");
+        // Initialize progress tracking
+        const bucketProgress: BucketProgress[] = bucketsToUpdate.map(name => ({
+            name,
+            status: "pending" as const,
+            message: "Waiting...",
+        }));
+
+        // Display initial progress
+        displayProgress(bucketProgress);
 
         // Use workers to update buckets in parallel
         const workerUrl = getWorkerUrl("bucket-update");
         const workers: Worker[] = [];
         const results: BucketUpdateResult[] = [];
 
-        // Show loading spinner while updates are in progress
-        const loader = new Loading("Updating buckets");
-        loader.start();
+        // Update progress display interval
+        const progressInterval = setInterval(() => {
+            displayProgress(bucketProgress);
+        }, 100);
 
         // Create promise for each bucket
-        const promises = bucketsToUpdate.map(name => {
+        const promises = bucketsToUpdate.map((name, index) => {
             return new Promise<BucketUpdateResult | null>((resolve, reject) => {
                 const worker = new Worker(workerUrl);
 
                 const job: BucketUpdateJob = { name, scope, showChangelog };
 
+                // Mark as updating
+                bucketProgress[index].status = "updating";
+                bucketProgress[index].message = "Updating...";
+
                 worker.onmessage = (event: MessageEvent<BucketUpdateResponse>) => {
                     const response = event.data;
 
                     if (response.type === "result" && response.data) {
-                        resolve(response.data);
+                        const result = response.data;
+
+                        // Update progress
+                        bucketProgress[index].status = result.status;
+                        bucketProgress[index].commits = result.commits;
+
+                        if (result.status === "failed") {
+                            bucketProgress[index].message = result.error || "Unknown error";
+                        }
+
+                        resolve(result);
                     } else {
+                        bucketProgress[index].status = "failed";
+                        bucketProgress[index].message = "Unknown error";
                         resolve(null);
                     }
 
@@ -74,6 +145,8 @@ export async function handler(args: ParsedArgs): Promise<number> {
                 };
 
                 worker.onerror = err => {
+                    bucketProgress[index].status = "failed";
+                    bucketProgress[index].message = "Worker error";
                     worker.terminate();
                     resolve(null);
                 };
@@ -86,7 +159,11 @@ export async function handler(args: ParsedArgs): Promise<number> {
         // Wait for all workers to complete
         const bucketResults = await Promise.all(promises);
 
-        loader.stop();
+        // Stop progress updates
+        clearInterval(progressInterval);
+
+        // Display final progress
+        displayProgress(bucketProgress);
 
         // Filter out nulls and collect results
         for (const result of bucketResults) {
@@ -95,36 +172,38 @@ export async function handler(args: ParsedArgs): Promise<number> {
             }
         }
 
-        // Display results
-        let updated = 0;
-        let upToDate = 0;
-        let failed = 0;
+        // Display changelog if requested
+        if (showChangelog) {
+            newline();
+            log("Changelog:");
+            newline();
 
-        for (const result of results) {
-            if (result.status === "updated") {
-                success(`✓ Updated '${result.name}'`);
-                if (showChangelog && result.commits && result.commits.length > 0) {
-                    log("  Changes:");
-                    for (const commit of result.commits) {
-                        log(`    - ${commit}`);
+            for (const progress of bucketProgress) {
+                if (
+                    progress.status === "updated" &&
+                    progress.commits &&
+                    progress.commits.length > 0
+                ) {
+                    log(`${cyan(progress.name)}:`);
+                    for (const commit of progress.commits) {
+                        log(`  - ${commit}`);
                     }
+                    newline();
                 }
-                updated++;
-            } else if (result.status === "up-to-date") {
-                log(`  '${result.name}' is already up-to-date`);
-                upToDate++;
-            } else if (result.status === "failed") {
-                error(`✗ Failed to update '${result.name}': ${result.error || "Unknown error"}`);
-                failed++;
             }
         }
 
-        log("");
+        // Display summary
+        const updated = results.filter(r => r.status === "updated").length;
+        const upToDate = results.filter(r => r.status === "up-to-date").length;
+        const failed = results.filter(r => r.status === "failed").length;
+
+        newline();
         log("Update summary:");
-        log(`  Updated: ${updated}`);
-        log(`  Up-to-date: ${upToDate}`);
+        log(`  Updated: ${green(updated.toString())}`);
+        log(`  Up-to-date: ${dim(upToDate.toString())}`);
         if (failed > 0) {
-            log(`  Failed: ${failed}`);
+            log(`  Failed: ${red(failed.toString())}`);
         }
 
         return failed > 0 ? 1 : 0;
@@ -138,7 +217,7 @@ export const help = `
 Usage: swb bucket update [name] [options]
 
 Update installed bucket(s) by pulling latest changes from their remote repositories.
-Updates run in parallel for improved performance.
+Updates run in parallel with individual progress for each bucket.
 
 Arguments:
   name   Name of specific bucket to update (optional, updates all if omitted)
