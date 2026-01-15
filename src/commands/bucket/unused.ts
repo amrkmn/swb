@@ -8,8 +8,7 @@ import { getAllBuckets } from "src/lib/buckets.ts";
 import type { ParsedArgs } from "src/lib/parser.ts";
 import { resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
 import { log, newline } from "src/utils/logger.ts";
-import { bold, cyan, dim, green } from "src/utils/colors.ts";
-import { formatLineColumns } from "src/utils/helpers.ts";
+import { cyan, dim } from "src/utils/colors.ts";
 
 /**
  * Get all installed apps and their bucket source
@@ -56,33 +55,6 @@ async function getInstalledAppBuckets(scope: InstallScope): Promise<Set<string>>
 }
 
 /**
- * Display unused buckets in table format
- */
-function displayUnusedBuckets(buckets: string[]): void {
-    if (buckets.length === 0) return;
-
-    // Prepare table data with header
-    const tableData: string[][] = [["Unused bucket"].map(h => bold(green(h)))];
-
-    for (const bucket of buckets) {
-        tableData.push([cyan(bucket)]);
-    }
-
-    const formattedTable = formatLineColumns(tableData, {
-        weights: [1.0],
-    });
-    log(formattedTable);
-}
-
-/**
- * Display summary line
- */
-function displayUnusedBucketsSummary(total: number): void {
-    newline();
-    log(dim(`${total} unused bucket${total !== 1 ? "s" : ""}`));
-}
-
-/**
  * Find unused buckets
  */
 export async function handler(args: ParsedArgs): Promise<number> {
@@ -113,8 +85,13 @@ export async function handler(args: ParsedArgs): Promise<number> {
         return 0;
     }
 
-    displayUnusedBuckets(unusedBuckets);
-    displayUnusedBucketsSummary(unusedBuckets.length);
+    log("The following buckets are unused:");
+    for (const bucket of unusedBuckets) {
+        log(`  ${cyan(bucket)}`);
+    }
+
+    newline();
+    log(dim(`${unusedBuckets.length} unused bucket${unusedBuckets.length !== 1 ? "s" : ""}`));
 
     return 0;
 }
