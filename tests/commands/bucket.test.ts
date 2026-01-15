@@ -1,6 +1,22 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, beforeAll, afterAll } from "bun:test";
 import { definition } from "src/commands/bucket/index.ts";
 import type { ParsedArgs } from "src/lib/parser.ts";
+
+// Suppress console output during tests
+let originalConsoleLog: typeof console.log;
+let originalStdoutWrite: typeof process.stdout.write;
+
+beforeAll(() => {
+    originalConsoleLog = console.log;
+    originalStdoutWrite = process.stdout.write;
+    console.log = mock(() => {});
+    process.stdout.write = mock(() => true);
+});
+
+afterAll(() => {
+    console.log = originalConsoleLog;
+    process.stdout.write = originalStdoutWrite;
+});
 
 // Mock logger to suppress output
 mock.module("src/utils/logger.ts", () => ({
