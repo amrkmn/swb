@@ -80,24 +80,14 @@ export async function handler(args: ParsedArgs): Promise<number> {
     }
 
     if (unusedBuckets.length === 0) {
-        log("All buckets are in use.");
+        log("No unused buckets");
         return 0;
     }
 
-    log("");
-    log("Unused buckets:");
-    log("");
-
+    log("The following buckets are unused:");
     for (const bucket of unusedBuckets) {
         log(`  ${bucket}`);
     }
-
-    log("");
-    log(`Found ${unusedBuckets.length} unused bucket(s).`);
-    log("");
-    log("To remove a bucket:");
-    log("  swb bucket remove <name> --force");
-    log("");
 
     return 0;
 }
