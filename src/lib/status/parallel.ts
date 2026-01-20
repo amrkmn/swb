@@ -9,11 +9,11 @@ import { type InstalledApp } from "src/lib/apps.ts";
 import { resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
 import { getWorkerUrl } from "../workers";
 import type {
-    InstalledAppInfo,
+    AppStatusResult,
     BucketLocation,
+    InstalledAppInfo,
     StatusWorkerMessage,
     StatusWorkerResponse,
-    AppStatusResult,
 } from "../workers/status.ts";
 
 export type { AppStatusResult };

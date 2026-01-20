@@ -2,11 +2,11 @@
  * Bucket known subcommand - List all known buckets
  */
 
-import { getAllKnownBuckets } from "src/utils/known-buckets.ts";
 import type { ParsedArgs } from "src/lib/parser.ts";
-import { log, newline } from "src/utils/logger.ts";
 import { bold, cyan, dim, green } from "src/utils/colors.ts";
 import { formatLineColumns } from "src/utils/helpers.ts";
+import { getAllKnownBuckets } from "src/utils/known-buckets.ts";
+import { log, newline } from "src/utils/logger.ts";
 
 /**
  * Display known buckets in table format

@@ -1,14 +1,12 @@
 import { $ } from "bun";
-import { getCommitsSince, generateChangelog } from "./changelog.ts";
+import { generateChangelog, getCommitsSince } from "./changelog.ts";
+import * as git from "../src/lib/git.ts";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
 async function getCurrentVersion(): Promise<string> {
-    try {
-        return (await $`git describe --tags --abbrev=0`.text()).trim();
-    } catch {
-        return "v0.0.0";
-    }
+    const tag = await git.getLatestTag();
+    return tag || "v0.0.0";
 }
 
 function bumpVersion(version: string, type: "major" | "minor" | "patch"): string {
@@ -50,15 +48,16 @@ async function main() {
 
     // Verify git status
     console.log("Checking git status...");
-    const status = (await $`git status --porcelain`.text()).trim();
+    const status = await git.getStatus();
     if (status) throw new Error("Uncommitted changes found. Commit or stash them first.");
 
-    const branch = (await $`git branch --show-current`.text()).trim();
+    const branch = await git.getCurrentBranch();
     if (branch !== "main") throw new Error("Must be on main branch to release.");
 
-    const remoteMain = (await $`git rev-parse --abbrev-ref HEAD@{u}`.text()).trim();
-    const localCommit = (await $`git rev-parse HEAD`.text()).trim();
-    const remoteCommit = (await $`git rev-parse ${remoteMain}`.text()).trim();
+    const remoteMain = await git.getRemoteTrackingBranch();
+    if (!remoteMain) throw new Error("No remote tracking branch found.");
+    const localCommit = await git.getCommitHash("HEAD");
+    const remoteCommit = await git.getCommitHash(remoteMain);
     if (localCommit !== remoteCommit) throw new Error("Branch out of sync with remote.");
     console.log("Git checks passed");
     console.log("");
@@ -108,15 +107,15 @@ async function main() {
 
     // Commit, tag, and push
     console.log(`Committing: release: ${newVersion}`);
-    await $`git add .`;
-    await $`git commit -m "release: ${newVersion}"`;
+    await git.addAll();
+    await git.commit(`release: ${newVersion}`);
 
     console.log(`Creating tag ${newVersion}...`);
-    await $`git tag -a ${newVersion} -m ${newVersion}`;
+    await git.createTag(newVersion, newVersion);
 
     console.log(`Pushing to origin/main and ${newVersion}...`);
-    await $`git push origin main`;
-    await $`git push origin ${newVersion}`;
+    await git.push("origin", "main");
+    await git.push("origin", newVersion);
     console.log("");
 
     console.log(`Successfully released ${newVersion}!`);

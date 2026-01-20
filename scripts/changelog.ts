@@ -1,4 +1,4 @@
-import { $ } from "bun";
+import * as git from "../src/lib/git.ts";
 
 interface Commit {
     hash: string;
@@ -15,7 +15,7 @@ function parseCommit(message: string): { type?: string; scope?: string; subject?
 
 export async function getCommitsSince(since: string): Promise<Commit[]> {
     try {
-        const result = await $`git log ${since}..HEAD --pretty=${"format:%H|%s"}`.text();
+        const result = await git.getCommitsSince(since, "format:%H|%s");
         return result
             .trim()
             .split("\n")

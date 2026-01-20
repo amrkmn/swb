@@ -2,6 +2,7 @@ import { $ } from "bun";
 import { existsSync, readFileSync, statSync } from "fs";
 import { basename, join } from "path";
 import { type InstalledApp } from "src/lib/apps.ts";
+import * as git from "src/lib/git.ts";
 import { findAllBucketsInScope, findAllManifests, readManifestFields } from "src/lib/manifests.ts";
 import { bold, green } from "src/utils/colors.ts";
 import { formatLineColumns } from "src/utils/helpers.ts";
@@ -33,11 +34,11 @@ export async function checkGitRepoStatus(repoPath: string): Promise<boolean> {
             return mtimeMs < thirtyDaysAgo;
         }
 
-        await $`git -C ${repoPath} fetch -q origin`;
-        const branch = (await $`git -C ${repoPath} branch --show-current`.text()).trim();
-        const count = Number(
-            (await $`git -C ${repoPath} rev-list --count HEAD..origin/${branch}`.text()).trim()
-        );
+        await git.fetch(repoPath);
+        const branch = await git.getCurrentBranch(repoPath);
+        if (!branch) return false;
+
+        const count = await git.getCommitCount("HEAD", `origin/${branch}`, repoPath);
 
         if (count > 0) {
             return true;

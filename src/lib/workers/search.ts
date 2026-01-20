@@ -4,7 +4,7 @@
  */
 
 import { readdirSync, readFileSync } from "node:fs";
-import { join, basename } from "node:path";
+import { basename, join } from "node:path";
 
 declare var self: Worker;
 

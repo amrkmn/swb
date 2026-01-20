@@ -3,11 +3,11 @@
  * Spawns workers to scan buckets in parallel for fast search performance.
  */
 
-import { readdirSync, existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { resolveScoopPaths, type InstallScope } from "../paths";
 import { getWorkerUrl } from "../workers";
-import type { WorkerSearchMessage, WorkerResponse, WorkerSearchResult } from "../workers/search";
+import type { WorkerResponse, WorkerSearchMessage, WorkerSearchResult } from "../workers/search";
 
 export interface ParallelSearchResult {
     name: string;

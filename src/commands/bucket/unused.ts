@@ -7,8 +7,8 @@ import path from "node:path";
 import { getAllBuckets } from "src/lib/buckets.ts";
 import type { ParsedArgs } from "src/lib/parser.ts";
 import { resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
-import { log, newline } from "src/utils/logger.ts";
 import { cyan, dim } from "src/utils/colors.ts";
+import { log, newline } from "src/utils/logger.ts";
 
 /**
  * Get all installed apps and their bucket source

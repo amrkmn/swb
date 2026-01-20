@@ -2,8 +2,8 @@
  * Bucket info worker - Gather bucket metadata in parallel
  */
 
-import { getRemoteUrl, getLastCommitDate } from "src/lib/git.ts";
-import { getBucketPath, getBucketManifestCount } from "src/lib/buckets.ts";
+import { getBucketManifestCount, getBucketPath } from "src/lib/buckets.ts";
+import * as git from "src/lib/git.ts";
 import type { InstallScope } from "src/lib/paths.ts";
 
 declare var self: Worker;
@@ -31,8 +31,8 @@ self.onmessage = async (event: MessageEvent<BucketInfoJob>) => {
 
     try {
         const bucketPath = getBucketPath(name, scope);
-        const source = (await getRemoteUrl(bucketPath)) || "unknown";
-        const lastCommit = await getLastCommitDate(bucketPath);
+        const source = (await git.getRemoteUrl(bucketPath)) || "unknown";
+        const lastCommit = await git.getLastCommitDate(bucketPath);
         const updated = lastCommit ? lastCommit.toISOString().split("T")[0] : "unknown";
         const manifests = getBucketManifestCount(bucketPath);
 

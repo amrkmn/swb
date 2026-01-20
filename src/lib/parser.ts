@@ -1,5 +1,5 @@
-import { error } from "src/utils/logger.ts";
 import { formatLineColumns } from "src/utils/helpers.ts";
+import { error } from "src/utils/logger.ts";
 
 // Enhanced parsed arguments interface
 import mri from "mri";

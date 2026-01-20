@@ -2,11 +2,11 @@
  * Bucket add subcommand - Add a new bucket repository
  */
 
-import { getKnownBucket } from "src/utils/known-buckets.ts";
 import { bucketExists, getBucketManifestCount, getBucketPath } from "src/lib/buckets.ts";
-import { clone } from "src/lib/git.ts";
+import * as git from "src/lib/git.ts";
 import type { ParsedArgs } from "src/lib/parser.ts";
 import type { InstallScope } from "src/lib/paths.ts";
+import { getKnownBucket } from "src/utils/known-buckets.ts";
 import { ProgressBar } from "src/utils/loader.ts";
 import { error, log, success } from "src/utils/logger.ts";
 
@@ -73,7 +73,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
         progress.start();
 
         try {
-            await clone(url, bucketPath, { progress });
+            await git.clone(url, bucketPath, { progress });
             progress.complete();
         } catch (err) {
             progress.stop();

@@ -2,8 +2,8 @@
  * Bucket update worker - Update buckets in parallel
  */
 
-import { pull, isGitRepo, getCommitsSinceRemote } from "src/lib/git.ts";
 import { getBucketPath } from "src/lib/buckets.ts";
+import * as git from "src/lib/git.ts";
 import type { InstallScope } from "src/lib/paths.ts";
 
 declare var self: Worker;
@@ -34,7 +34,7 @@ self.onmessage = async (event: MessageEvent<BucketUpdateJob>) => {
         const bucketPath = getBucketPath(name, scope);
 
         // Check if it's a git repository
-        if (!(await isGitRepo(bucketPath))) {
+        if (!(await git.isGitRepo(bucketPath))) {
             const response: BucketUpdateResponse = {
                 type: "result",
                 data: {
@@ -47,15 +47,18 @@ self.onmessage = async (event: MessageEvent<BucketUpdateJob>) => {
             return;
         }
 
+        await git.fetch(bucketPath);
+
         // Get commits before pulling (always check to determine status)
-        const commitsBefore = await getCommitsSinceRemote(bucketPath);
+        const commitsBefore = showChangelog ? await git.getCommitsSinceRemote(bucketPath) : [];
+        const hasUpdates = commitsBefore.length > 0;
 
         // Pull updates
-        await pull(bucketPath);
+        if (hasUpdates) await git.pull(bucketPath);
 
         const result: BucketUpdateResult = {
             name,
-            status: commitsBefore.length > 0 ? "updated" : "up-to-date",
+            status: hasUpdates ? "updated" : "up-to-date",
             commits: showChangelog ? commitsBefore : undefined,
         };
 
