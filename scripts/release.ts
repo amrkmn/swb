@@ -46,10 +46,21 @@ async function main() {
         return;
     }
 
-    // Verify git status
+    // Verify git status (only check SWB source files, not scripts)
     console.log("Checking git status...");
     const status = await git.getStatus();
-    if (status) throw new Error("Uncommitted changes found. Commit or stash them first.");
+    if (status) {
+        // Filter out changes in scripts/ folder
+        const lines = status.split("\n").filter(line => {
+            const file = line.slice(2).trim(); // Remove status prefix (e.g., "M ")
+            return !file.startsWith("scripts/");
+        });
+        if (lines.length > 0) {
+            throw new Error(
+                "Uncommitted changes found in source files. Commit or stash them first."
+            );
+        }
+    }
 
     const branch = await git.getCurrentBranch();
     if (branch !== "main") throw new Error("Must be on main branch to release.");
@@ -59,6 +70,20 @@ async function main() {
     const localCommit = await git.getCommitHash("HEAD");
     const remoteCommit = await git.getCommitHash(remoteMain);
     if (localCommit !== remoteCommit) throw new Error("Branch out of sync with remote.");
+
+    // Check if tag already exists (locally or remotely)
+    if (await git.tagExists(newVersion)) {
+        throw new Error(
+            `Tag ${newVersion} already exists locally. Delete it first: git tag -d ${newVersion}`
+        );
+    }
+
+    if (await git.remoteTagExists(newVersion)) {
+        throw new Error(
+            `Tag ${newVersion} already exists on remote. Delete it first: git push origin :refs/tags/${newVersion}`
+        );
+    }
+
     console.log("Git checks passed");
     console.log("");
 
@@ -100,12 +125,7 @@ async function main() {
     console.log(`Found ${commits.length} commit(s)`);
     console.log("");
 
-    // Create GitHub release
-    console.log(`Creating GitHub release ${newVersion}...`);
-    await $`gh release create ${newVersion} --title ${newVersion} --notes ${changelog}`;
-    console.log("");
-
-    // Commit, tag, and push
+    // Commit changes first
     console.log(`Committing: release: ${newVersion}`);
     await git.addAll();
     await git.commit(`release: ${newVersion}`);
@@ -113,9 +133,35 @@ async function main() {
     console.log(`Creating tag ${newVersion}...`);
     await git.createTag(newVersion, newVersion);
 
-    console.log(`Pushing to origin/main and ${newVersion}...`);
-    await git.push("origin", "main");
-    await git.push("origin", newVersion);
+    // Push to remote (with rollback on failure)
+    try {
+        console.log(`Pushing to origin/main...`);
+        await git.push("origin", "main");
+
+        console.log(`Pushing tag ${newVersion}...`);
+        await git.push("origin", newVersion);
+    } catch (err) {
+        console.error("\nPush failed! Rolling back...");
+
+        // Delete local tag
+        await git.deleteTag(newVersion);
+
+        // Reset commit
+        await git.resetHard("HEAD~1");
+
+        console.error("Rollback complete. Repository restored to previous state.");
+        throw err;
+    }
+
+    // Create GitHub release after successful push
+    console.log(`Creating GitHub release ${newVersion}...`);
+    try {
+        await $`gh release create ${newVersion} --title ${newVersion} --notes ${changelog}`;
+    } catch (err) {
+        console.warn("\nGitHub release creation failed, but code was pushed successfully.");
+        console.warn("You can create the release manually at:");
+        console.warn(`  https://github.com/amrkmn/swb/releases/new?tag=${newVersion}`);
+    }
     console.log("");
 
     console.log(`Successfully released ${newVersion}!`);

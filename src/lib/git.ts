@@ -20,7 +20,7 @@ export interface PullOptions {
 /**
  * Check if a directory is a git repository
  */
-export async function isGitRepo(repoPath: string): Promise<boolean> {
+export async function isGitRepo(repoPath: string = "."): Promise<boolean> {
     const gitDir = path.join(repoPath, ".git");
     return existsSync(gitDir);
 }
@@ -28,7 +28,7 @@ export async function isGitRepo(repoPath: string): Promise<boolean> {
 /**
  * Get the remote URL for a git repository
  */
-export async function getRemoteUrl(repoPath: string): Promise<string | null> {
+export async function getRemoteUrl(repoPath: string = "."): Promise<string | null> {
     if (!(await isGitRepo(repoPath))) {
         return null;
     }
@@ -44,7 +44,7 @@ export async function getRemoteUrl(repoPath: string): Promise<string | null> {
 /**
  * Get the last commit date for a repository
  */
-export async function getLastCommitDate(repoPath: string): Promise<Date | null> {
+export async function getLastCommitDate(repoPath: string = "."): Promise<Date | null> {
     if (!(await isGitRepo(repoPath))) {
         return null;
     }
@@ -122,7 +122,7 @@ export async function clone(url: string, dest: string, options: CloneOptions = {
 /**
  * Pull updates for a git repository
  */
-export async function pull(repoPath: string, options: PullOptions = {}): Promise<void> {
+export async function pull(repoPath: string = ".", options: PullOptions = {}): Promise<void> {
     if (!(await isGitRepo(repoPath))) {
         throw new Error(`Not a git repository: ${repoPath}`);
     }
@@ -150,7 +150,7 @@ export async function pull(repoPath: string, options: PullOptions = {}): Promise
     }
 }
 
-export async function fetch(repoPath: string): Promise<void> {
+export async function fetch(repoPath: string = "."): Promise<void> {
     if (!(await isGitRepo(repoPath))) {
         throw new Error(`Not a git repository: ${repoPath}`);
     }
@@ -161,7 +161,7 @@ export async function fetch(repoPath: string): Promise<void> {
 /**
  * Check if remote has updates
  */
-export async function hasRemoteUpdates(repoPath: string): Promise<boolean> {
+export async function hasRemoteUpdates(repoPath: string = "."): Promise<boolean> {
     if (!(await isGitRepo(repoPath))) {
         return false;
     }
@@ -179,7 +179,7 @@ export async function hasRemoteUpdates(repoPath: string): Promise<boolean> {
 /**
  * Get commit messages between HEAD and remote
  */
-export async function getCommitsSinceRemote(repoPath: string): Promise<string[]> {
+export async function getCommitsSinceRemote(repoPath: string = "."): Promise<string[]> {
     if (!(await isGitRepo(repoPath))) {
         return [];
     }
@@ -308,11 +308,57 @@ export async function getCommitsSince(
 /**
  * Count commits between two refs
  */
-export async function getCommitCount(from: string, to: string, repoPath: string): Promise<number> {
+export async function getCommitCount(
+    from: string,
+    to: string,
+    repoPath: string = "."
+): Promise<number> {
     try {
         const result = await $`git -C ${repoPath} rev-list --count ${from}..${to}`.text();
         return parseInt(result.trim(), 10) || 0;
     } catch {
         return 0;
     }
+}
+
+/**
+ * Check if a tag exists locally
+ */
+export async function tagExists(tag: string, repoPath: string = "."): Promise<boolean> {
+    try {
+        const result = await $`git -C ${repoPath} tag -l ${tag}`.text();
+        return result.trim() !== "";
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Check if a tag exists on remote
+ */
+export async function remoteTagExists(
+    tag: string,
+    remote: string = "origin",
+    repoPath: string = "."
+): Promise<boolean> {
+    try {
+        const result = await $`git -C ${repoPath} ls-remote --tags ${remote} ${tag}`.text();
+        return result.trim() !== "";
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Delete a local tag
+ */
+export async function deleteTag(tag: string, repoPath: string = "."): Promise<void> {
+    await $`git -C ${repoPath} tag -d ${tag}`.quiet();
+}
+
+/**
+ * Reset to a specific commit (hard reset)
+ */
+export async function resetHard(ref: string, repoPath: string = "."): Promise<void> {
+    await $`git -C ${repoPath} reset --hard ${ref}`.quiet();
 }
