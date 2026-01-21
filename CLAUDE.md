@@ -10,9 +10,12 @@ SWB (Scoop With Bun) is a TypeScript/JavaScript reimplementation of the Scoop Wi
 
 ```bash
 # Development
-bun run dev          # Run CLI in development mode
-bun test             # Run tests
-bun run build        # Build standalone executable (outputs to dist/swb.exe)
+bun run dev              # Run CLI in development mode
+bun run dev search foo   # Test specific command with arguments
+bun test                 # Run all tests
+bun test <file>          # Run single test file
+bun test --watch         # Run tests in watch mode
+bun run build            # Build standalone executable (outputs to dist/swb.exe)
 
 # Code formatting
 bun run format       # Format all files with Prettier
@@ -110,9 +113,42 @@ Available commands include:
 - TypeScript with strict mode enabled
 - ES2022 target with ESNext modules
 - Bun-specific bundler resolution
-- Import paths use `src/` prefix for internal modules
+- Import paths use `src/` prefix for internal modules with `.ts` extension
 - Command definitions follow consistent interface pattern
 - Error handling with proper exit codes (0 = success, 1 = error)
+
+**Import Pattern:**
+```typescript
+import mri from "mri";
+import { error, log } from "src/utils/logger.ts";
+import type { CommandDefinition } from "src/lib/parser.ts";
+```
+External imports first, then blank line, then internal imports. Use `type` keyword for type-only imports.
+
+**Formatting (Prettier):**
+- Print width: 100
+- Tab width: 4 spaces
+- Semicolons: required
+- Quotes: double
+- Trailing commas: ES5
+- Avoid arrow parens when possible: `x => x`
+
+**Naming Conventions:**
+- Files: kebab-case (`my-module.ts`)
+- Classes/Interfaces: PascalCase (`class Parser`, `interface Command`)
+- Functions/Variables: camelCase (`getWorkerUrl()`, `bucketCount`)
+- Constants: UPPER_SNAKE_CASE (`DEFAULT_TIMEOUT`)
+- Private members: underscore prefix (`_privateMethod()`)
+
+**TypeScript Guidelines:**
+- Explicit types for parameters and return values
+- Prefer interfaces over type aliases for objects
+- Avoid `any`; use `unknown` for unknown types
+- Always check `err instanceof Error` before accessing `.message`
+
+**Windows-Specific:**
+- Use `path.win32.join()` for paths - don't hardcode backslashes
+- Use `realpathSync()` for resolving junctions/symlinks
 
 ## Dependencies
 
@@ -133,6 +169,25 @@ Available commands include:
 ## Testing
 
 The project uses Bun's built-in test runner (`bun test`). Test files are located in `tests/commands/` with a `.test.ts` extension, mirroring the command structure in `src/commands/`. Each command has a corresponding test file (e.g., `src/commands/list.ts` → `tests/commands/list.test.ts`).
+
+**Testing Pattern:**
+Mock modules before importing to avoid side effects:
+
+```typescript
+import { describe, test, expect, mock } from "bun:test";
+
+// Mock logger to prevent console output during tests
+mock.module("src/utils/logger.ts", () => ({
+  log: mock(() => {}),
+  error: mock(() => {}),
+}));
+
+describe("command", () => {
+  test("does thing", async () => {
+    expect(result).toBe(0);
+  });
+});
+```
 
 ## Git Commit Message Format
 

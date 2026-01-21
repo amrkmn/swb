@@ -30,7 +30,7 @@ bun run format:check # Check formatting only
 
 ### Formatting (Prettier)
 
-Print width: 100, Tab width: 4 spaces, Semicolons: required, Quotes: double, Trailing commas: ES5, CRLF line endings, Bracket spacing enabled. Avoid arrow parens: `x => x`.
+Print width: 100, Tab width: 4 spaces, Semicolons: required, Quotes: double, Trailing commas: ES5, LF line endings, Bracket spacing enabled. Avoid arrow parens: `x => x`.
 
 ### Imports
 
