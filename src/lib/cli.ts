@@ -23,8 +23,7 @@ async function getVersion(): Promise<string> {
     // Fallback to reading from package.json (development mode)
     try {
         const pkgPath = new URL("../../package.json", import.meta.url);
-        const content = await readFile(pkgPath, "utf-8");
-        const pkg = JSON.parse(content);
+        const pkg = await Bun.file(pkgPath).json();
         return pkg.version || "unknown";
     } catch {
         return "unknown";

@@ -5,7 +5,6 @@
 import { getBucketPath } from "src/lib/buckets.ts";
 import * as git from "src/lib/git.ts";
 import type { InstallScope } from "src/lib/paths.ts";
-import { info } from "src/utils/logger";
 
 declare var self: Worker;
 
