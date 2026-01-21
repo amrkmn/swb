@@ -5,6 +5,7 @@
 import { getBucketPath } from "src/lib/buckets.ts";
 import * as git from "src/lib/git.ts";
 import type { InstallScope } from "src/lib/paths.ts";
+import { info } from "src/utils/logger";
 
 declare var self: Worker;
 
@@ -50,7 +51,7 @@ self.onmessage = async (event: MessageEvent<BucketUpdateJob>) => {
         await git.fetch(bucketPath);
 
         // Get commits before pulling (always check to determine status)
-        const commitsBefore = showChangelog ? await git.getCommitsSinceRemote(bucketPath) : [];
+        const commitsBefore = await git.getCommitsSinceRemote(bucketPath);
         const hasUpdates = commitsBefore.length > 0;
 
         // Pull updates
