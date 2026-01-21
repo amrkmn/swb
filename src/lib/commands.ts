@@ -14,6 +14,7 @@ import { definition as listCommand } from "src/commands/list.ts";
 import { definition as prefixCommand } from "src/commands/prefix.ts";
 import { definition as searchCommand } from "src/commands/search.ts";
 import { definition as statusCommand } from "src/commands/status.ts";
+import { definition as versionCommand } from "src/commands/version.ts";
 import { definition as whichCommand } from "src/commands/which.ts";
 
 // Static command registry for easy access and bundling
@@ -26,6 +27,7 @@ export const commandRegistry: Record<string, CommandDefinition> = {
     prefix: prefixCommand,
     search: searchCommand,
     status: statusCommand,
+    version: versionCommand,
     which: whichCommand,
 };
 
