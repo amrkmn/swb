@@ -26,8 +26,8 @@
     },
     "devDependencies": {
         "@types/bun": "latest",
-        "@types/node": "^24.10.4",
-        "prettier": "^3.7.4"
+        "@types/node": "^24.10.9",
+        "prettier": "^3.8.1"
     },
     "peerDependencies": {
         "typescript": "^5.9.3"
