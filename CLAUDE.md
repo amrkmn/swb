@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SWB (Scoop With Bun) is a TypeScript/JavaScript reimplementation of the Scoop Windows package manager, built with Bun runtime. It provides fast package management for Windows with native shell integration.
+SWB (Scoop With Bun) is a TypeScript/JavaScript reimplementation of the Scoop Windows package manager, built with Bun runtime. It provides fast package management for Windows with parallel search processing and full Scoop compatibility.
 
 ## Development Commands
 
@@ -16,6 +16,7 @@ bun test                 # Run all tests
 bun test <file>          # Run single test file
 bun test --watch         # Run tests in watch mode
 bun run build            # Build standalone executable (outputs to dist/swb.exe)
+bun run build --baseline # Build with CPU baseline compatibility
 
 # Code formatting
 bun run format       # Format all files with Prettier
@@ -32,149 +33,181 @@ bun run changelog <from-version> <to-version>  # Generate changelog between vers
 
 ## Architecture Overview
 
-### Core Structure
+### Core Architecture Pattern
 
-- **Entry Point**: `src/cli.ts` - Main CLI entry that delegates to `src/lib/cli.ts`
-- **CLI System**: `src/lib/cli.ts` - Handles argument parsing, command registration, and execution
-- **Command Registry**: `src/lib/commands.ts` - Centralizes all available commands
-- **Parser**: `src/lib/parser.ts` - Command line argument parsing and validation
+SWB uses a **services-based architecture** with dependency injection:
+
+```
+src/
+├── cli.ts              # Entry point with run() and createContext()
+├── core/               # Abstract base classes and interfaces
+│   ├── Command.ts      # Base class for all commands (Zod validation)
+│   ├── GroupCommand.ts # Base class for commands with subcommands
+│   └── Context.ts      # DI container interface + Service base class
+├── services/           # Business logic layer (all extend Service)
+│   ├── AppsService.ts
+│   ├── BucketService.ts
+│   ├── CleanupService.ts
+│   ├── ConfigService.ts
+│   ├── ManifestService.ts
+│   ├── ShimService.ts
+│   └── WorkerService.ts # Web Worker orchestration
+├── commands/           # CLI command implementations
+│   ├── bucket/         # Bucket management commands
+│   ├── cleanup/
+│   ├── config/
+│   ├── info/
+│   ├── list/
+│   ├── prefix/
+│   ├── search/
+│   ├── status/
+│   ├── version/
+│   └── which/
+├── workers/            # Web Workers for parallel processing
+│   ├── search.ts       # Parallel bucket search
+│   ├── status.ts       # Parallel status checks
+│   └── bucket/         # Bucket-specific workers
+└── utils/              # Utility functions
+    ├── colors.ts       # ANSI color codes
+    ├── git.ts          # Git operations
+    ├── helpers.ts      # General helpers
+    ├── known-buckets.ts# Known bucket registry
+    ├── loader.ts       # Progress bars and spinners
+    ├── logger.ts       # Colored logging
+    ├── paths.ts        # Windows path utilities
+    ├── version.ts      # Version resolution
+    └── workers.ts      # Worker URL resolution (getWorkerUrl)
+```
 
 ### Key Components
 
-**Apps Management** (`src/lib/apps.ts`)
+**Entry Point** (`src/cli.ts`)
+- `run()` - Main entry point, parses CLI args with `mri`, dispatches to commands
+- `createContext()` - Creates DI container with all services
+- Commands are registered at module level in `src/cli.ts`
 
-- Scans installed apps from Scoop directories
-- Resolves symlinks for current app versions
-- Caches app listings for performance (30-second TTL)
-- Handles both user (`%USERPROFILE%\scoop`) and global (`C:\ProgramData\scoop`) scopes
+**Command System** (`src/core/Command.ts`)
+- Abstract `Command<Args, Flags>` class with Zod schema validation
+- `argsSchema` - Zod schema for positional arguments
+- `flagsSchema` - Zod schema for command flags/options
+- `run(ctx, args, flags)` - Abstract method for command implementation
+- `help(ctx)` - Auto-generated help from Zod schemas
+- `flagAliases` - Map short flags to long names for help display
+- `examples` - Usage examples for help text
 
-**Path Resolution** (`src/lib/paths.ts`)
+**Context Interface** (`src/core/Context.ts`)
+- DI container containing: `version`, `logger`, `verbose` flag, and `services`
+- All services extend abstract `Service` class (receives Context in constructor)
+- Services accessed via `ctx.services.buckets`, `ctx.services.workers`, etc.
 
-- Windows-specific Scoop path handling
-- Supports user and global installation scopes
-- Provides utilities for apps, shims, buckets, and cache directories
-
-**Commands** (`src/commands/`)
-Available commands include:
-
-- `cleanup` - Clean up Scoop installation artifacts
-- `config` - Configuration management
-- `info` - App information display
-- `list` - List installed apps with optional filtering
-- `prefix` - Show app installation paths
-- `search` - Search for packages (with optimized caching)
-- `status` - Show installation status
-- `which` - Locate executable paths
-
-**Utilities** (`src/utils/`)
-
-- `logger.ts` - Centralized logging with colored output using ANSI escape codes
-- `colors.ts` - Color utility functions with native ANSI escape code implementation
-- `exec.ts` - Command execution helpers
-- `helpers.ts` - General utility functions
-- `loader.ts` - Loading spinner and ProgressBar utilities for CLI feedback
-
-**Parallel Workers** (`src/lib/workers/`)
-
-- Centralized Web Workers for parallel processing
-- `src/lib/workers/index.ts` - Worker path resolution with `getWorkerUrl()` function
-- `src/lib/workers/search.ts` - Search worker for parallel bucket scanning
-- `src/lib/workers/status.ts` - Status worker for parallel status checks
-- Workers are embedded in compiled executable using Bun's virtual filesystem
-- Each worker operates independently on separate data batches
-- Used by `src/lib/search/parallel.ts` and `src/lib/status/parallel.ts`
+**WorkerService** (`src/services/WorkerService.ts`)
+- Centralized Web Worker orchestration
+- `search()` - Parallel bucket search with progress tracking
+- `updateBucket()` - Parallel git updates for buckets
+- `checkStatus()` - Parallel status checks across buckets
+- `findAllBuckets()` - Discover all bucket locations
+- Uses `getWorkerUrl()` from `src/utils/workers.ts` for path resolution
 
 ### Build System
 
-- Uses Bun's native bundler (`Bun.build`) with compile mode only
-- Produces standalone executable (`dist/swb.exe`) with embedded workers
-- Workers embedded using Bun's virtual filesystem (`B:/~BUN/root/lib/workers`)
+**Bun Build Configuration:**
+- Uses `Bun.build()` with compile mode (produces standalone `.exe`)
+- Default target: `bun-windows-x64` (AVX2)
+- Baseline target: `bun-windows-x64-baseline` (with `--baseline` flag)
 - Minification enabled for production
-- Version injection via `SWB_VERSION` environment variable
-- Build script: `scripts/build.ts`
-  - Supports `--baseline` flag for CPU baseline compatibility (bun-windows-x64-baseline)
-  - Default build uses AVX2 (bun-windows-x64)
-- Release script: `scripts/release.ts` - handles version bump, build, git tag, and push
-  - Pushing tags triggers GitHub Actions release workflow
-  - GitHub Actions builds both AVX2 and baseline variants
-  - Automatically creates GitHub releases with compiled binaries
-- Worker entrypoints: `src/lib/workers/search.ts`, `src/lib/workers/status.ts`
-- Compile-time constant `SWB_WORKER_PATH` defined during build
+- Workers embedded via Bun's virtual filesystem (`B:/~BUN/root/workers/`)
+
+**Build Script** (`scripts/build.ts`):
+- Entrypoints: `src/cli.ts` + all workers (`src/workers/**/*.ts`)
+- Compile-time constants:
+  - `SWB_VERSION` - Version string from package.json or env var
+  - `SWB_WORKER_PATH` - Virtual filesystem path for workers
+- Output: `dist/swb.exe`
+
+**Worker Path Resolution** (`src/utils/workers.ts`):
+- `getWorkerUrl(workerName)` - Returns worker URL
+- Development mode: Returns `.ts` file URL via `import.meta.url`
+- Compiled mode: Returns embedded path using `SWB_WORKER_PATH`
+
+**Release Script** (`scripts/release.ts`):
+- Bumps version in package.json
+- Runs build, creates git tag, pushes to trigger GitHub Actions
+- GitHub Actions builds both AVX2 and baseline variants
+- Automatically creates GitHub releases with compiled binaries
 
 **Adding New Workers:**
 
-1. Create worker file in `src/lib/workers/<name>.ts`
+1. Create worker file in `src/workers/<name>.ts` or `src/workers/<category>/<name>.ts`
 2. Add worker entrypoint to `scripts/build.ts` entrypoints array
-3. Use `getWorkerUrl("<name>")` from `src/lib/workers/index.ts` to resolve worker path
+3. Use `getWorkerUrl("<category>/<name>")` or `getWorkerUrl("<name>")` from services
 4. Worker automatically embedded in compiled executable
 
 ### Code Conventions
 
-- TypeScript with strict mode enabled
-- ES2022 target with ESNext modules
-- Bun-specific bundler resolution
-- Import paths use `src/` prefix for internal modules with `.ts` extension
-- Command definitions follow consistent interface pattern
-- Error handling with proper exit codes (0 = success, 1 = error)
+**TypeScript Configuration:**
+- Target: ES2022 with ESNext modules
+- Bundler resolution for imports
+- Strict mode enabled
+- `.ts` extensions required for internal imports
 
 **Import Pattern:**
 
 ```typescript
+// External imports first
 import mri from "mri";
-import { error, log } from "src/utils/logger.ts";
-import type { CommandDefinition } from "src/lib/parser.ts";
+import { z } from "zod";
+
+// Blank line separator
+
+// Internal imports with .ts extension
+import type { Command } from "src/core/Command.ts";
+import type { Context } from "src/core/Context.ts";
+import { log } from "src/utils/logger.ts";
 ```
 
-External imports first, then blank line, then internal imports. Use `type` keyword for type-only imports.
-
 **Formatting (Prettier):**
-
 - Print width: 100
 - Tab width: 4 spaces
 - Semicolons: required
 - Quotes: double
 - Trailing commas: ES5
-- Avoid arrow parens when possible: `x => x`
+- Avoid arrow parens: `x => x`
 
 **Naming Conventions:**
-
-- Files: kebab-case (`my-module.ts`)
-- Classes/Interfaces: PascalCase (`class Parser`, `interface Command`)
+- Files: kebab-case (`my-service.ts`)
+- Classes/Interfaces: PascalCase (`class Command`, `interface Context`)
 - Functions/Variables: camelCase (`getWorkerUrl()`, `bucketCount`)
 - Constants: UPPER_SNAKE_CASE (`DEFAULT_TIMEOUT`)
 - Private members: underscore prefix (`_privateMethod()`)
 
 **TypeScript Guidelines:**
-
+- Use `type` keyword for type-only imports
 - Explicit types for parameters and return values
 - Prefer interfaces over type aliases for objects
 - Avoid `any`; use `unknown` for unknown types
 - Always check `err instanceof Error` before accessing `.message`
 
 **Windows-Specific:**
-
 - Use `path.win32.join()` for paths - don't hardcode backslashes
 - Use `realpathSync()` for resolving junctions/symlinks
 
 ## Dependencies
 
 ### Runtime
-
 - `mri` ^1.2.0 - Command-line argument parsing
+- `zod` ^4.3.6 - Schema validation for command args/flags
 
 ### Development
-
 - `@types/bun` latest - Bun runtime type definitions
-- `@types/node` ^24.10.4 - Node.js type compatibility
-- `prettier` ^3.7.4 - Code formatting
+- `@types/node` ^24.10.9 - Node.js type compatibility
+- `prettier` ^3.8.1 - Code formatting
 
 ### Peer
-
 - `typescript` ^5.9.3 - TypeScript compiler support
 
 ## Testing
 
-The project uses Bun's built-in test runner (`bun test`). Test files are located in `tests/commands/` with a `.test.ts` extension, mirroring the command structure in `src/commands/`. Each command has a corresponding test file (e.g., `src/commands/list.ts` → `tests/commands/list.test.ts`).
+The project uses Bun's built-in test runner (`bun test`). Test files are in `tests/commands/` with `.test.ts` extension, mirroring the command structure in `src/commands/`.
 
 **Testing Pattern:**
 Mock modules before importing to avoid side effects:
@@ -197,7 +230,7 @@ describe("command", () => {
 
 ## Git Commit Message Format
 
-Follow the Conventional Commits specification for all commit messages:
+Follow the Conventional Commits specification:
 
 ### Format
 
@@ -208,7 +241,6 @@ Follow the Conventional Commits specification for all commit messages:
 ```
 
 ### Types
-
 - `feat` - New feature or enhancement
 - `fix` - Bug fix
 - `chore` - Maintenance tasks (deps, release, cleanup)
@@ -220,11 +252,9 @@ Follow the Conventional Commits specification for all commit messages:
 - `ci` - CI/CD configuration changes
 
 ### Scopes (optional but recommended)
+Common scopes: `release`, `search`, `help`, `cleanup`, `build`, `ci`, `ui`, `status`
 
-Common scopes include: `release`, `search`, `help`, `cleanup`, `build`, `ci`, `ui`, `status`
-
-### Examples from Project History
-
+### Examples
 ```bash
 feat(release): add automatic changelog generation
 fix(search): improve progress bar feedback during post-processing
@@ -237,7 +267,6 @@ test: add test files for all commands
 ```
 
 ### Guidelines
-
 - Use present tense ("add feature" not "added feature")
 - Use imperative mood ("move cursor to..." not "moves cursor to...")
 - Keep subject line under 72 characters
@@ -246,33 +275,6 @@ test: add test files for all commands
 - Separate subject from body with blank line (if body is needed)
 - Wrap body at 72 characters
 - Use body to explain what and why, not how
-
-## Performance Optimization
-
-**Environment Variables**
-
-- `SWB_HOME` - Custom home directory (default: `~`)
-  - Data directory becomes `$SWB_HOME/.swb`
-  - Used for any local cache files if needed
-  - Useful for shared environments or custom storage locations
-
-**Parallel Search System**
-
-The search system uses multi-worker parallel processing for fast performance:
-
-- Multiple Web Workers scan buckets in parallel
-- Each worker processes one bucket directory independently
-- Progress tracking with real-time bucket status updates
-- Typical search completes in under 1 second across all buckets
-
-## Scoop Compatibility
-
-SWB follows Scoop conventions:
-
-- App installations in `<root>\apps\<name>\current` (symlink to version folder)
-- Separate user and global scopes
-- Compatible with existing Scoop directory structures
-- Maintains Scoop's CLI interface patterns
 
 # important-instruction-reminders
 
