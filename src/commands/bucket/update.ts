@@ -1,18 +1,18 @@
-/**
- * Bucket update subcommand - Update installed buckets in parallel with animated progress
- */
+import { Command } from "src/core/Command";
+import type { Context } from "src/core/Context";
+import { cyan, dim, green, red, yellow } from "src/utils/colors";
+import { error, log, newline } from "src/utils/logger";
+import type { InstallScope } from "src/utils/paths";
+import { z } from "zod";
 
-import { bucketExists, getAllBuckets } from "src/lib/buckets.ts";
-import type { ParsedArgs } from "src/lib/parser.ts";
-import type { InstallScope } from "src/lib/paths.ts";
-import type {
-    BucketUpdateJob,
-    BucketUpdateResponse,
-    BucketUpdateResult,
-} from "src/lib/workers/bucket/update.ts";
-import { getWorkerUrl } from "src/lib/workers/index.ts";
-import { cyan, dim, green, red, yellow } from "src/utils/colors.ts";
-import { error, log, newline } from "src/utils/logger.ts";
+const UpdateArgs = z.object({
+    name: z.string().optional(),
+});
+
+const UpdateFlags = z.object({
+    global: z.boolean().default(false),
+    changelog: z.boolean().default(false),
+});
 
 interface BucketProgress {
     name: string;
@@ -21,85 +21,36 @@ interface BucketProgress {
     commits?: string[];
 }
 
-let animationFrame = 0;
+export class BucketUpdateCommand extends Command<typeof UpdateArgs, typeof UpdateFlags> {
+    name = "update";
+    description = "Update installed bucket(s) by pulling latest changes";
+    argsSchema = UpdateArgs;
+    flagsSchema = UpdateFlags;
 
-/**
- * Get animated dots for updating status
- */
-function getAnimatedDots(): string {
-    const dots = [".  ", ".. ", "..."];
-    return dots[animationFrame % dots.length];
-}
+    private animationFrame = 0;
 
-/**
- * Display multi-bucket progress (in-place update)
- */
-function displayProgress(buckets: BucketProgress[], isInitial: boolean = false): void {
-    if (!isInitial && buckets.length > 0) {
-        // Move cursor up to overwrite previous progress
-        // +2 for header and blank line
-        process.stdout.write(`\x1b[${buckets.length + 2}A`);
-    }
+    async run(ctx: Context, args: z.infer<typeof UpdateArgs>, flags: z.infer<typeof UpdateFlags>) {
+        const { services } = ctx;
+        const bucketService = services.buckets;
+        const workerService = services.workers;
 
-    // Clear and write header
-    process.stdout.write("\rUpdating buckets:\x1b[K\n");
-    process.stdout.write("\r\x1b[K\n");
-
-    // Write each bucket line
-    for (const bucket of buckets) {
-        const paddedName = bucket.name.padEnd(20);
-        let icon = "⏳";
-        let statusColor = dim;
-        let statusText = bucket.message;
-
-        switch (bucket.status) {
-            case "updating":
-                icon = "🔄";
-                statusColor = yellow;
-                statusText = `Updating${getAnimatedDots()}`;
-                break;
-            case "updated":
-                icon = "✅";
-                statusColor = green;
-                statusText = "Updated";
-                break;
-            case "up-to-date":
-                icon = "✅";
-                statusColor = dim;
-                statusText = "No updates available";
-                break;
-            case "failed":
-                icon = "❌";
-                statusColor = red;
-                break;
-        }
-
-        // Clear line and write bucket status
-        process.stdout.write(`\r${icon} ${cyan(paddedName)} ${statusColor(statusText)}\x1b[K\n`);
-    }
-}
-
-/**
- * Update bucket(s) using parallel workers with animated progress
- */
-export async function handler(args: ParsedArgs): Promise<number> {
-    try {
-        const scope: InstallScope = args.flags.global ? "global" : "user";
-        const bucketName = args.args[0];
-        const showChangelog = args.flags.changelog || false;
+        const scope: InstallScope = flags.global ? "global" : "user";
+        const bucketName = args.name;
+        const showChangelog = flags.changelog;
 
         let bucketsToUpdate: string[] = [];
 
         if (bucketName) {
             // Update specific bucket
-            if (!bucketExists(bucketName, scope)) {
+            if (!bucketService.exists(bucketName, scope)) {
                 error(`Bucket '${bucketName}' not found.`);
                 return 1;
             }
             bucketsToUpdate = [bucketName];
         } else {
             // Update all buckets
-            bucketsToUpdate = getAllBuckets(scope);
+            const buckets = await bucketService.list(scope);
+            bucketsToUpdate = buckets.map(b => b.name);
 
             if (bucketsToUpdate.length === 0) {
                 log("No buckets installed.");
@@ -110,100 +61,55 @@ export async function handler(args: ParsedArgs): Promise<number> {
         // Initialize progress tracking
         const bucketProgress: BucketProgress[] = bucketsToUpdate.map(name => ({
             name,
-            status: "pending" as const,
+            status: "pending",
             message: "Waiting...",
         }));
 
-        // Reset animation frame
-        animationFrame = 0;
+        this.animationFrame = 0;
+        this.displayProgress(bucketProgress, true);
 
-        // Display initial progress
-        displayProgress(bucketProgress, true);
-
-        // Use workers to update buckets in parallel
-        const workerUrl = getWorkerUrl("bucket/update");
-        const workers: Worker[] = [];
-        const results: BucketUpdateResult[] = [];
-
-        // Animate progress while updates are running
+        // Animate progress
         const animationInterval = setInterval(() => {
             const hasUpdating = bucketProgress.some(b => b.status === "updating");
             if (hasUpdating) {
-                animationFrame++;
-                displayProgress(bucketProgress);
+                this.animationFrame++;
+                this.displayProgress(bucketProgress);
             }
-        }, 300); // Update every 300ms
+        }, 300);
 
         // Create promise for each bucket
-        const promises = bucketsToUpdate.map((name, index) => {
-            return new Promise<BucketUpdateResult | null>((resolve, reject) => {
-                const worker = new Worker(workerUrl);
+        const promises = bucketsToUpdate.map(async (name, index) => {
+            // Mark as updating
+            bucketProgress[index].status = "updating";
+            bucketProgress[index].message = "Updating...";
+            this.displayProgress(bucketProgress);
 
-                const job: BucketUpdateJob = { name, scope, showChangelog };
+            try {
+                // Use worker service
+                const result = await workerService.updateBucket(name, scope, showChangelog);
 
-                // Mark as updating and display
-                bucketProgress[index].status = "updating";
-                bucketProgress[index].message = "Updating...";
-                displayProgress(bucketProgress);
+                bucketProgress[index].status = result.status;
+                bucketProgress[index].commits = result.commits;
 
-                worker.onmessage = (event: MessageEvent<BucketUpdateResponse>) => {
-                    const response = event.data;
+                if (result.status === "failed") {
+                    bucketProgress[index].message = result.error || "Unknown error";
+                }
+            } catch (err) {
+                bucketProgress[index].status = "failed";
+                bucketProgress[index].message = err instanceof Error ? err.message : String(err);
+            }
 
-                    if (response.type === "result" && response.data) {
-                        const result = response.data;
-
-                        // Update progress
-                        bucketProgress[index].status = result.status;
-                        bucketProgress[index].commits = result.commits;
-
-                        if (result.status === "failed") {
-                            bucketProgress[index].message = result.error || "Unknown error";
-                        }
-
-                        // Display updated progress
-                        displayProgress(bucketProgress);
-
-                        resolve(result);
-                    } else {
-                        bucketProgress[index].status = "failed";
-                        bucketProgress[index].message = "Unknown error";
-                        displayProgress(bucketProgress);
-                        resolve(null);
-                    }
-
-                    worker.terminate();
-                };
-
-                worker.onerror = err => {
-                    bucketProgress[index].status = "failed";
-                    bucketProgress[index].message = "Worker error";
-                    displayProgress(bucketProgress);
-                    worker.terminate();
-                    resolve(null);
-                };
-
-                worker.postMessage(job);
-                workers.push(worker);
-            });
+            this.displayProgress(bucketProgress);
+            return bucketProgress[index];
         });
 
-        // Wait for all workers to complete
-        const bucketResults = await Promise.all(promises);
+        // Wait for all
+        const results = await Promise.all(promises);
 
-        // Stop animation
         clearInterval(animationInterval);
+        this.displayProgress(bucketProgress);
 
-        // Display final progress
-        displayProgress(bucketProgress);
-
-        // Filter out nulls and collect results
-        for (const result of bucketResults) {
-            if (result) {
-                results.push(result);
-            }
-        }
-
-        // Display changelog if requested
+        // Display changelog
         if (showChangelog) {
             newline();
             log("Changelog:");
@@ -224,7 +130,7 @@ export async function handler(args: ParsedArgs): Promise<number> {
             }
         }
 
-        // Display summary
+        // Summary
         const updated = results.filter(r => r.status === "updated").length;
         const upToDate = results.filter(r => r.status === "up-to-date").length;
         const failed = results.filter(r => r.status === "failed").length;
@@ -238,28 +144,52 @@ export async function handler(args: ParsedArgs): Promise<number> {
         }
 
         return failed > 0 ? 1 : 0;
-    } catch (err) {
-        error(`Failed to update buckets: ${err instanceof Error ? err.message : String(err)}`);
-        return 1;
+    }
+
+    private getAnimatedDots(): string {
+        const dots = [".  ", ".. ", "..."];
+        return dots[this.animationFrame % dots.length];
+    }
+
+    private displayProgress(buckets: BucketProgress[], isInitial: boolean = false): void {
+        if (!isInitial && buckets.length > 0) {
+            process.stdout.write(`\x1b[${buckets.length + 2}A`);
+        }
+
+        process.stdout.write("\rUpdating buckets:\x1b[K\n");
+        process.stdout.write("\r\x1b[K\n");
+
+        for (const bucket of buckets) {
+            const paddedName = bucket.name.padEnd(20);
+            let icon = "⏳";
+            let statusColor = dim;
+            let statusText = bucket.message;
+
+            switch (bucket.status) {
+                case "updating":
+                    icon = "🔄";
+                    statusColor = yellow;
+                    statusText = `Updating${this.getAnimatedDots()}`;
+                    break;
+                case "updated":
+                    icon = "✅";
+                    statusColor = green;
+                    statusText = "Updated";
+                    break;
+                case "up-to-date":
+                    icon = "✅";
+                    statusColor = dim;
+                    statusText = "No updates available";
+                    break;
+                case "failed":
+                    icon = "❌";
+                    statusColor = red;
+                    break;
+            }
+
+            process.stdout.write(
+                `\r${icon} ${cyan(paddedName)} ${statusColor(statusText)}\x1b[K\n`
+            );
+        }
     }
 }
-
-export const help = `
-Usage: swb bucket update [name] [options]
-
-Update installed bucket(s) by pulling latest changes from their remote repositories.
-Updates run in parallel with individual progress for each bucket.
-
-Arguments:
-  name   Name of specific bucket to update (optional, updates all if omitted)
-
-Options:
-  --changelog   Show commit messages for updates
-  --global      Update global buckets instead of user buckets
-
-Examples:
-  swb bucket update
-  swb bucket update extras
-  swb bucket update --changelog
-  swb bucket update extras --global
-`;

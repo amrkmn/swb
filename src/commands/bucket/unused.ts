@@ -1,112 +1,81 @@
-/**
- * Bucket unused subcommand - Find buckets without installed packages
- */
+import { Command } from "src/core/Command";
+import type { Context } from "src/core/Context";
+import { cyan, dim } from "src/utils/colors";
+import { z } from "zod";
 
-import { existsSync, readdirSync } from "node:fs";
-import path from "node:path";
-import { getAllBuckets } from "src/lib/buckets.ts";
-import type { ParsedArgs } from "src/lib/parser.ts";
-import { resolveScoopPaths, type InstallScope } from "src/lib/paths.ts";
-import { cyan, dim } from "src/utils/colors.ts";
-import { log, newline } from "src/utils/logger.ts";
+const UnusedArgs = z.object({});
+const UnusedFlags = z.object({
+    json: z.boolean().default(false).optional(),
+    j: z.boolean().default(false).optional(),
+    global: z.boolean().default(false).optional(),
+});
 
-/**
- * Get all installed apps and their bucket source
- */
-async function getInstalledAppBuckets(scope: InstallScope): Promise<Set<string>> {
-    const buckets = new Set<string>();
-    const paths = resolveScoopPaths(scope);
-    const appsDir = paths.apps;
+export class BucketUnusedCommand extends Command<typeof UnusedArgs, typeof UnusedFlags> {
+    name = "unused";
+    description = "Find buckets that have no packages installed from them";
+    argsSchema = UnusedArgs;
+    flagsSchema = UnusedFlags;
 
-    if (!existsSync(appsDir)) {
-        return buckets;
-    }
+    async run(ctx: Context, _args: any, flags: z.infer<typeof UnusedFlags>) {
+        const { logger, services } = ctx;
+        const appsService = services.apps;
+        const bucketService = services.buckets;
 
-    try {
-        const apps = readdirSync(appsDir);
+        const scope = flags.global ? "global" : "user";
+        const json = flags.json || flags.j;
 
-        for (const app of apps) {
-            // Skip current/scoop meta directories
-            if (app === "scoop" || app === "current") continue;
+        // 1. Get all buckets
+        const allBuckets = await bucketService.list(scope);
 
-            // Check install.json for bucket information
-            const installPath = path.join(appsDir, app, "current", "install.json");
+        if (allBuckets.length === 0) {
+            if (json) {
+                logger.log("[]");
+            } else {
+                logger.log("No buckets installed.");
+            }
+            return 0;
+        }
 
-            if (existsSync(installPath)) {
-                try {
-                    const installContent = Bun.file(installPath);
-                    const installData = await installContent.json();
+        // 2. Get used buckets from installed apps
+        const installedApps = appsService.listInstalled();
+        const usedBuckets = new Set<string>();
 
-                    // Extract bucket from install.json
-                    if (installData.bucket) {
-                        buckets.add(installData.bucket);
-                    }
-                } catch {
-                    // Skip if install.json is invalid
-                    continue;
-                }
+        for (const app of installedApps) {
+            if (app.scope === scope && app.bucket) {
+                usedBuckets.add(app.bucket.toLowerCase());
             }
         }
-    } catch {
-        // Return empty set if apps directory can't be read
-    }
 
-    return buckets;
-}
+        // 3. Filter unused
+        const unusedBuckets = allBuckets.filter(b => !usedBuckets.has(b.name.toLowerCase()));
 
-/**
- * Find unused buckets
- */
-export async function handler(args: ParsedArgs): Promise<number> {
-    const scope: InstallScope = args.flags.global ? "global" : "user";
-    const json = args.flags.json || args.flags.j || false;
-
-    const allBuckets = getAllBuckets(scope);
-
-    if (allBuckets.length === 0) {
-        if (!json) {
-            log("No buckets installed.");
-        } else {
-            log(JSON.stringify([]));
+        // 4. Output
+        if (json) {
+            logger.log(
+                JSON.stringify(
+                    unusedBuckets.map(b => b.name),
+                    null,
+                    2
+                )
+            );
+            return 0;
         }
+
+        if (unusedBuckets.length === 0) {
+            logger.log("No unused buckets");
+            return 0;
+        }
+
+        logger.log("The following buckets are unused:");
+        for (const bucket of unusedBuckets) {
+            logger.log(`  ${cyan(bucket.name)}`);
+        }
+
+        logger.newline();
+        logger.log(
+            dim(`${unusedBuckets.length} unused bucket${unusedBuckets.length !== 1 ? "s" : ""}`)
+        );
+
         return 0;
     }
-
-    const usedBuckets = await getInstalledAppBuckets(scope);
-    const unusedBuckets = allBuckets.filter(bucket => !usedBuckets.has(bucket));
-
-    if (json) {
-        log(JSON.stringify(unusedBuckets, null, 2));
-        return 0;
-    }
-
-    if (unusedBuckets.length === 0) {
-        log("No unused buckets");
-        return 0;
-    }
-
-    log("The following buckets are unused:");
-    for (const bucket of unusedBuckets) {
-        log(`  ${cyan(bucket)}`);
-    }
-
-    newline();
-    log(dim(`${unusedBuckets.length} unused bucket${unusedBuckets.length !== 1 ? "s" : ""}`));
-
-    return 0;
 }
-
-export const help = `
-Usage: swb bucket unused [options]
-
-Find buckets that have no packages installed from them.
-
-Options:
-  -j, --json    Output in JSON format
-  --global      Check global buckets instead of user buckets
-
-Examples:
-  swb bucket unused
-  swb bucket unused --json
-  swb bucket unused --global
-`;

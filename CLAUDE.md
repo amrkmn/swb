@@ -118,14 +118,17 @@ Available commands include:
 - Error handling with proper exit codes (0 = success, 1 = error)
 
 **Import Pattern:**
+
 ```typescript
 import mri from "mri";
 import { error, log } from "src/utils/logger.ts";
 import type { CommandDefinition } from "src/lib/parser.ts";
 ```
+
 External imports first, then blank line, then internal imports. Use `type` keyword for type-only imports.
 
 **Formatting (Prettier):**
+
 - Print width: 100
 - Tab width: 4 spaces
 - Semicolons: required
@@ -134,6 +137,7 @@ External imports first, then blank line, then internal imports. Use `type` keywo
 - Avoid arrow parens when possible: `x => x`
 
 **Naming Conventions:**
+
 - Files: kebab-case (`my-module.ts`)
 - Classes/Interfaces: PascalCase (`class Parser`, `interface Command`)
 - Functions/Variables: camelCase (`getWorkerUrl()`, `bucketCount`)
@@ -141,12 +145,14 @@ External imports first, then blank line, then internal imports. Use `type` keywo
 - Private members: underscore prefix (`_privateMethod()`)
 
 **TypeScript Guidelines:**
+
 - Explicit types for parameters and return values
 - Prefer interfaces over type aliases for objects
 - Avoid `any`; use `unknown` for unknown types
 - Always check `err instanceof Error` before accessing `.message`
 
 **Windows-Specific:**
+
 - Use `path.win32.join()` for paths - don't hardcode backslashes
 - Use `realpathSync()` for resolving junctions/symlinks
 

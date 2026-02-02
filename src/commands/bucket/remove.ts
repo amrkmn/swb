@@ -1,86 +1,61 @@
-/**
- * Bucket remove subcommand - Remove an installed bucket
- */
+import { Command } from "src/core/Command";
+import type { Context } from "src/core/Context";
+import { z } from "zod";
 
-import { rmSync } from "node:fs";
-import { bucketExists, getBucketPath } from "src/lib/buckets.ts";
-import type { ParsedArgs } from "src/lib/parser.ts";
-import type { InstallScope } from "src/lib/paths.ts";
-import { error, log, success, warn } from "src/utils/logger.ts";
+const RemoveArgs = z.object({
+    name: z.string().min(1, "Bucket name is required"),
+});
 
-/**
- * Remove a bucket
- */
-export async function handler(args: ParsedArgs): Promise<number> {
-    try {
-        const scope: InstallScope = args.global.global ? "global" : "user";
-        const bucketName = args.args[0];
-        const force = args.flags.force || args.flags.f || false;
+const RemoveFlags = z.object({
+    global: z.boolean().default(false),
+    force: z.boolean().default(false),
+    f: z.boolean().default(false),
+});
 
-        if (!bucketName) {
-            error("Bucket name is required.");
-            log(help);
+export class BucketRemoveCommand extends Command<typeof RemoveArgs, typeof RemoveFlags> {
+    name = "remove";
+    description = "Remove an installed bucket";
+    aliases = ["rm"];
+    argsSchema = RemoveArgs;
+    flagsSchema = RemoveFlags;
+
+    async run(ctx: Context, args: z.infer<typeof RemoveArgs>, flags: z.infer<typeof RemoveFlags>) {
+        const { logger, services } = ctx;
+        const bucketService = services.buckets;
+        const scope = flags.global ? "global" : "user";
+        const name = args.name;
+        const force = flags.force || flags.f;
+
+        // 1. Check existence
+        if (!bucketService.exists(name, scope)) {
+            logger.error(`Bucket '${name}' not found.`);
             return 1;
         }
 
-        // Check if bucket exists
-        if (!bucketExists(bucketName, scope)) {
-            error(`Bucket '${bucketName}' not found.`);
-            return 1;
+        // 2. Warn main bucket
+        if (name === "main") {
+            logger.warn("Warning: Removing the 'main' bucket may break Scoop functionality!");
         }
 
-        // Warn if removing main bucket
-        if (bucketName === "main") {
-            warn("Warning: Removing the 'main' bucket may break Scoop functionality!");
-        }
-
-        // Confirm removal unless force flag is set
+        // 3. Confirm (Force only for now)
         if (!force) {
-            log(`Are you sure you want to remove bucket '${bucketName}'? (y/N)`);
-
-            // Simple confirmation (in real implementation, you'd want to read from stdin)
-            // For now, we'll require the --force flag
-            error("Use --force flag to confirm bucket removal:");
-            log(`  swb bucket remove ${bucketName} --force`);
+            // Interactive prompt not supported yet in v2
+            logger.error("Use --force flag to confirm bucket removal:");
+            logger.log(`  swb bucket remove ${name} --force`);
             return 1;
         }
 
-        const bucketPath = getBucketPath(bucketName, scope);
-
-        log(`Removing bucket '${bucketName}'...`);
+        logger.log(`Removing bucket '${name}'...`);
 
         try {
-            rmSync(bucketPath, { recursive: true, force: true });
+            bucketService.remove(name, scope);
+            logger.success(`Bucket '${name}' removed successfully.`);
+            return 0;
         } catch (err) {
-            error(`Failed to remove bucket: ${err instanceof Error ? err.message : String(err)}`);
+            logger.error(
+                `Failed to remove bucket: ${err instanceof Error ? err.message : String(err)}`
+            );
             return 1;
         }
-
-        success(`Bucket '${bucketName}' removed successfully.`);
-
-        return 0;
-    } catch (err) {
-        error(`Failed to remove bucket: ${err instanceof Error ? err.message : String(err)}`);
-        return 1;
     }
 }
-
-export const help = `
-Usage: swb bucket remove <name> [options]
-
-Remove an installed bucket.
-
-Aliases: rm
-
-Arguments:
-  name    Name of the bucket to remove
-
-Options:
-  --force, -f   Skip confirmation prompt
-  --global      Remove from global buckets instead of user buckets
-
-Examples:
-  swb bucket remove extras --force
-  swb bucket rm my-bucket -f
-  swb bucket remove extras --global --force
-`;

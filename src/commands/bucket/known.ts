@@ -1,70 +1,58 @@
-/**
- * Bucket known subcommand - List all known buckets
- */
+import { Command } from "src/core/Command";
+import type { Context } from "src/core/Context";
+import { bold, cyan, dim, green } from "src/utils/colors";
+import { formatLineColumns } from "src/utils/helpers";
+import { z } from "zod";
 
-import type { ParsedArgs } from "src/lib/parser.ts";
-import { bold, cyan, dim, green } from "src/utils/colors.ts";
-import { formatLineColumns } from "src/utils/helpers.ts";
-import { getAllKnownBuckets } from "src/utils/known-buckets.ts";
-import { log, newline } from "src/utils/logger.ts";
+const KnownArgs = z.object({});
+const KnownFlags = z.object({
+    json: z.boolean().default(false).optional(),
+});
 
-/**
- * Display known buckets in table format
- */
-function displayKnownBuckets(buckets: Array<{ name: string; source: string }>): void {
-    if (buckets.length === 0) return;
+export class BucketKnownCommand extends Command<typeof KnownArgs, typeof KnownFlags> {
+    name = "known";
+    description = "List all known official buckets";
+    argsSchema = KnownArgs;
+    flagsSchema = KnownFlags;
 
-    // Prepare table data with header
-    const tableData: string[][] = [["Name", "Source"].map(h => bold(green(h)))];
+    flagAliases = {
+        j: "json",
+    };
 
-    for (const bucket of buckets) {
-        const name = cyan(bucket.name);
-        const source = bucket.source;
+    async run(ctx: Context, _args: any, flags: z.infer<typeof KnownFlags>) {
+        const { logger, services } = ctx;
+        const bucketService = services.buckets;
 
-        tableData.push([name, source]);
-    }
+        const buckets = bucketService.known();
+        const isJson = flags.json;
 
-    const formattedTable = formatLineColumns(tableData, {
-        weights: [1.0, 3.0],
-    });
-    log(formattedTable);
-}
+        if (isJson) {
+            logger.log(JSON.stringify(buckets, null, 2));
+            return 0;
+        }
 
-/**
- * Display summary line
- */
-function displayKnownBucketsSummary(total: number): void {
-    newline();
-    log(dim(`${total} known bucket${total !== 1 ? "s" : ""}`));
-}
+        if (buckets.length === 0) {
+            logger.warn("No known buckets found.");
+            return 0;
+        }
 
-/**
- * List known buckets
- */
-export async function handler(args: ParsedArgs): Promise<number> {
-    const json = args.flags.json || args.flags.j || false;
-    const buckets = getAllKnownBuckets();
+        // Prepare table data with header
+        const tableData: string[][] = [["Name", "Source"].map(h => bold(green(h)))];
 
-    if (json) {
-        log(JSON.stringify(buckets, null, 2));
+        for (const bucket of buckets) {
+            const name = cyan(bucket.name);
+            const source = bucket.source;
+            tableData.push([name, source]);
+        }
+
+        const formattedTable = formatLineColumns(tableData, {
+            weights: [1.0, 3.0],
+        });
+
+        logger.log(formattedTable);
+        logger.newline();
+        logger.log(dim(`${buckets.length} known bucket${buckets.length !== 1 ? "s" : ""}`));
+
         return 0;
     }
-
-    displayKnownBuckets(buckets);
-    displayKnownBucketsSummary(buckets.length);
-
-    return 0;
 }
-
-export const help = `
-Usage: swb bucket known [options]
-
-List all officially recognized buckets from the Scoop project.
-
-Options:
-  -j, --json   Output in JSON format
-
-Examples:
-  swb bucket known
-  swb bucket known --json
-`;

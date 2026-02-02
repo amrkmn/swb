@@ -1,114 +1,91 @@
-/**
- * Bucket add subcommand - Add a new bucket repository
- */
+import { Command } from "src/core/Command";
+import type { Context } from "src/core/Context";
+import { ProgressBar } from "src/utils/loader";
+import { z } from "zod";
 
-import { bucketExists, getBucketManifestCount, getBucketPath } from "src/lib/buckets.ts";
-import * as git from "src/lib/git.ts";
-import type { ParsedArgs } from "src/lib/parser.ts";
-import type { InstallScope } from "src/lib/paths.ts";
-import { getKnownBucket } from "src/utils/known-buckets.ts";
-import { ProgressBar } from "src/utils/loader.ts";
-import { error, log, success } from "src/utils/logger.ts";
+const AddArgs = z.object({
+    name: z.string().min(1, "Bucket name is required"),
+    url: z.url("Invalid repository URL").optional(),
+});
 
-/**
- * Add a new bucket
- */
-export async function handler(args: ParsedArgs): Promise<number> {
-    try {
-        const scope: InstallScope = args.global.global ? "global" : "user";
-        const bucketName = args.args[0];
-        const repoUrl = args.args[1];
+const AddFlags = z.object({
+    global: z.boolean().default(false),
+});
 
-        if (!bucketName) {
-            error("Bucket name is required.");
-            log(help);
+export class BucketAddCommand extends Command<typeof AddArgs, typeof AddFlags> {
+    name = "add";
+    description = "Add a new bucket";
+    argsSchema = AddArgs;
+    flagsSchema = AddFlags;
+
+    async run(ctx: Context, args: z.infer<typeof AddArgs>, flags: z.infer<typeof AddFlags>) {
+        const { logger, services } = ctx;
+        const bucketService = services.buckets;
+        const scope = flags.global ? "global" : "user";
+        const name = args.name;
+
+        // 1. Validate name
+        if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+            logger.error(`Invalid bucket name: '${name}'`);
+            logger.log("Bucket names can only contain letters, numbers, hyphens, and underscores.");
             return 1;
         }
 
-        // Validate bucket name (alphanumeric, hyphens, underscores)
-        if (!/^[a-zA-Z0-9_-]+$/.test(bucketName)) {
-            error(`Invalid bucket name: '${bucketName}'`);
-            log("Bucket names can only contain letters, numbers, hyphens, and underscores.");
+        // 2. Check existence
+        if (bucketService.exists(name, scope)) {
+            logger.error(`Bucket '${name}' already exists.`);
             return 1;
         }
 
-        // Check if bucket already exists
-        if (bucketExists(bucketName, scope)) {
-            error(`Bucket '${bucketName}' already exists.`);
-            return 1;
-        }
-
-        // Resolve repository URL
-        let url = repoUrl;
+        // 3. Resolve URL
+        let url = args.url;
         if (!url) {
-            // Look up in known buckets
-            const knownUrl = getKnownBucket(bucketName);
+            const knownUrl = bucketService.getKnownUrl(name);
             if (!knownUrl) {
-                error(`Bucket '${bucketName}' is not a known bucket.`);
-                log("Please provide a repository URL:");
-                log(`  swb bucket add ${bucketName} <repository-url>`);
-                log("");
-                log("To see known buckets, run:");
-                log("  swb bucket known");
+                logger.error(`Bucket '${name}' is not a known bucket.`);
+                logger.log("Please provide a repository URL:");
+                logger.log(`  swb bucket add ${name} <repository-url>`);
+                logger.newline();
+                logger.log("To see known buckets, run:");
+                logger.log("  swb bucket known");
                 return 1;
             }
             url = knownUrl;
         }
 
-        // Validate URL format (basic check)
+        // 4. Validate URL (basic)
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            error(`Invalid repository URL: '${url}'`);
-            log("URL must start with http:// or https://");
+            logger.error(`Invalid repository URL: '${url}'`);
+            logger.log("URL must start with http:// or https://");
             return 1;
         }
 
-        const bucketPath = getBucketPath(bucketName, scope);
+        logger.log(`Adding bucket '${name}'...`);
+        logger.log(`Source: ${url}`);
+        logger.newline();
 
-        log(`Adding bucket '${bucketName}'...`);
-        log(`Source: ${url}`);
-        log("");
-
-        // Clone with progress bar
-        const progress = new ProgressBar(100, `Cloning ${bucketName}`);
-        progress.start();
+        // 5. Clone with progress
+        const progressBar = new ProgressBar(100, `Cloning ${name}`);
+        progressBar.start();
 
         try {
-            await git.clone(url, bucketPath, { progress });
-            progress.complete();
+            await bucketService.add(name, url, scope, p => {
+                progressBar.setProgress(p);
+            });
+            progressBar.complete();
         } catch (err) {
-            progress.stop();
-            error(`Failed to clone bucket: ${err instanceof Error ? err.message : String(err)}`);
+            progressBar.stop();
+            logger.error(
+                `Failed to clone bucket: ${err instanceof Error ? err.message : String(err)}`
+            );
             return 1;
         }
 
-        // Get manifest count
-        const manifestCount = getBucketManifestCount(bucketPath);
-
-        log("");
-        success(`Bucket '${bucketName}' added successfully.`);
-        log(`Manifests available: ${manifestCount}`);
+        logger.newline();
+        logger.success(`Bucket '${name}' added successfully.`);
+        // We could fetch the actual count, but for now we skip it to keep it simple,
+        // or we can add getManifestCount(name) to service.
 
         return 0;
-    } catch (err) {
-        error(`Failed to add bucket: ${err instanceof Error ? err.message : String(err)}`);
-        return 1;
     }
 }
-
-export const help = `
-Usage: swb bucket add <name> [repository-url]
-
-Add a new bucket to Scoop.
-
-Arguments:
-  name              Name of the bucket to add
-  repository-url    Git repository URL (optional for known buckets)
-
-Options:
-  --global   Add to global buckets instead of user buckets
-
-Examples:
-  swb bucket add extras
-  swb bucket add my-bucket https://github.com/user/my-bucket
-  swb bucket add extras --global
-`;

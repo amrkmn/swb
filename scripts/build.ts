@@ -22,10 +22,10 @@ const bunfsRoot = "B:/~BUN/root";
 const result = await Bun.build({
     entrypoints: [
         "src/cli.ts",
-        "src/lib/workers/search.ts",
-        "src/lib/workers/status.ts",
-        "src/lib/workers/bucket/info.ts",
-        "src/lib/workers/bucket/update.ts",
+        "src/workers/search.ts",
+        "src/workers/status.ts",
+        "src/workers/bucket/info.ts",
+        "src/workers/bucket/update.ts",
     ],
     minify: true,
     compile: {
@@ -35,7 +35,7 @@ const result = await Bun.build({
     outdir: "dist",
     define: {
         SWB_VERSION: `"${version}"`,
-        SWB_WORKER_PATH: `"${bunfsRoot}/lib/workers"`,
+        SWB_WORKER_PATH: `"${bunfsRoot}/workers"`,
     },
 });
 

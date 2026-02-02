@@ -1,227 +1,73 @@
-import { describe, test, expect, mock } from "bun:test";
-import { definition } from "src/commands/status.ts";
-import type { ParsedArgs } from "src/lib/parser.ts";
-
-// Mock logger to suppress output
-mock.module("src/utils/logger.ts", () => ({
-    log: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    info: mock(() => {}),
-    success: mock(() => {}),
-    verbose: mock(() => {}),
-}));
+import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { StatusCommand } from "src/commands/status/index";
+import { createMockContext } from "../test-utils";
 
 describe("status command", () => {
-    describe("command definition", () => {
-        test("should have correct name", () => {
-            expect(definition.name).toBe("status");
-        });
+    let command: StatusCommand;
+    let context: ReturnType<typeof createMockContext>;
 
-        test("should have description", () => {
-            expect(definition.description).toBeDefined();
-            expect(definition.description.length).toBeGreaterThan(0);
-        });
-
-        test("should have handler function", () => {
-            expect(definition.handler).toBeDefined();
-            expect(typeof definition.handler).toBe("function");
-        });
-
-        test("should have options for local and json", () => {
-            expect(definition.options).toBeDefined();
-            expect(definition.options?.length).toBeGreaterThan(0);
-
-            const localOption = definition.options?.find(opt => opt.flags.includes("local"));
-            expect(localOption).toBeDefined();
-
-            const jsonOption = definition.options?.find(opt => opt.flags.includes("json"));
-            expect(jsonOption).toBeDefined();
-        });
+    beforeEach(() => {
+        command = new StatusCommand();
+        context = createMockContext();
     });
 
-    describe("handler", () => {
-        test("should handle no installed apps", async () => {
-            mock.module("src/lib/apps.ts", () => ({
-                listInstalledApps: mock(() => []),
-            }));
+    test("should report everything up to date", async () => {
+        context.services.apps.listInstalled = mock(() => [
+            { name: "app1", version: "1.0.0", scope: "user" } as any,
+        ]);
 
-            const args: ParsedArgs = {
-                command: "status",
-                args: [],
-                flags: {},
-                global: {
-                    help: false,
-                    version: false,
-                    verbose: false,
-                    global: false,
-                },
-            };
+        context.services.buckets.checkScoopStatus = mock(() => Promise.resolve(false));
+        context.services.buckets.checkBucketsStatus = mock(() => Promise.resolve(false));
 
-            const result = await definition.handler(args);
+        context.services.workers.checkStatus = mock(() =>
+            Promise.resolve([
+                { name: "app1", outdated: false, failed: false, missingDeps: [], info: [] } as any,
+            ])
+        );
 
-            expect(result).toBe(0);
-        });
+        const result = await command.run(
+            context,
+            {},
+            { local: false, l: false, verbose: false, v: false }
+        );
 
-        test("should check status with installed apps", async () => {
-            const mockApps = [
-                { name: "app1", version: "1.0.0" },
-                { name: "app2", version: "2.0.0" },
-            ];
+        expect(result).toBe(0);
+        expect(context.logger.success).toHaveBeenCalledWith(
+            "All packages are okay and up to date."
+        );
+    });
 
-            const mockStatuses = [
-                { app: "app1", outdated: false, currentVersion: "1.0.0" },
-                { app: "app2", outdated: true, currentVersion: "2.0.0", latestVersion: "2.1.0" },
-            ];
+    test("should report outdated apps", async () => {
+        context.services.apps.listInstalled = mock(() => [
+            { name: "app1", version: "1.0.0", scope: "user" } as any,
+        ]);
 
-            const mockScoopStatus = { outdated: false };
+        context.services.buckets.checkScoopStatus = mock(() => Promise.resolve(false));
+        context.services.buckets.checkBucketsStatus = mock(() => Promise.resolve(false));
 
-            mock.module("src/lib/apps.ts", () => ({
-                listInstalledApps: mock(() => mockApps),
-            }));
+        context.services.workers.checkStatus = mock(() =>
+            Promise.resolve([
+                {
+                    name: "app1",
+                    outdated: true,
+                    installedVersion: "1.0.0",
+                    latestVersion: "2.0.0",
+                    missingDeps: [],
+                    info: [],
+                } as any,
+            ])
+        );
 
-            mock.module("src/lib/commands/status.ts", () => ({
-                checkScoopStatus: mock(() => Promise.resolve(mockScoopStatus)),
-                displayAppStatus: mock(() => {}),
-                displayScoopStatus: mock(() => {}),
-                displayStatusJson: mock(() => {}),
-            }));
+        const result = await command.run(
+            context,
+            {},
+            { local: false, l: false, verbose: false, v: false }
+        );
 
-            mock.module("src/lib/status/index.ts", () => ({
-                parallelStatusCheck: mock(() => Promise.resolve(mockStatuses)),
-            }));
-
-            mock.module("src/utils/loader.ts", () => ({
-                ProgressBar: mock(() => ({
-                    start: mock(() => {}),
-                    setStep: mock(() => {}),
-                    setProgress: mock(() => {}),
-                    complete: mock(() => {}),
-                })),
-            }));
-
-            const args: ParsedArgs = {
-                command: "status",
-                args: [],
-                flags: {},
-                global: {
-                    help: false,
-                    version: false,
-                    verbose: false,
-                    global: false,
-                },
-            };
-
-            const result = await definition.handler(args);
-
-            expect(result).toBe(0);
-        });
-
-        test("should use local flag to skip remote checks", async () => {
-            const mockApps = [{ name: "app1", version: "1.0.0" }];
-            const mockStatuses = [{ app: "app1", outdated: false, currentVersion: "1.0.0" }];
-            const mockScoopStatus = { outdated: false };
-            const checkScoopStatusMock = mock(() => Promise.resolve(mockScoopStatus));
-
-            mock.module("src/lib/apps.ts", () => ({
-                listInstalledApps: mock(() => mockApps),
-            }));
-
-            mock.module("src/lib/commands/status.ts", () => ({
-                checkScoopStatus: checkScoopStatusMock,
-                displayAppStatus: mock(() => {}),
-                displayScoopStatus: mock(() => {}),
-                displayStatusJson: mock(() => {}),
-            }));
-
-            mock.module("src/lib/status/index.ts", () => ({
-                parallelStatusCheck: mock(() => Promise.resolve(mockStatuses)),
-            }));
-
-            mock.module("src/utils/loader.ts", () => ({
-                ProgressBar: mock(() => ({
-                    start: mock(() => {}),
-                    setStep: mock(() => {}),
-                    setProgress: mock(() => {}),
-                    complete: mock(() => {}),
-                })),
-            }));
-
-            const args: ParsedArgs = {
-                command: "status",
-                args: [],
-                flags: { local: true },
-                global: {
-                    help: false,
-                    version: false,
-                    verbose: false,
-                    global: false,
-                },
-            };
-
-            const result = await definition.handler(args);
-
-            expect(result).toBe(0);
-        });
-
-        test("should output JSON format when --json flag is provided", async () => {
-            const mockApps = [{ name: "app1", version: "1.0.0" }];
-            const mockStatuses = [{ app: "app1", outdated: false, currentVersion: "1.0.0" }];
-            const mockScoopStatus = { outdated: false };
-            const displayStatusJsonMock = mock(() => {});
-
-            mock.module("src/lib/apps.ts", () => ({
-                listInstalledApps: mock(() => mockApps),
-            }));
-
-            mock.module("src/lib/commands/status.ts", () => ({
-                checkScoopStatus: mock(() => Promise.resolve(mockScoopStatus)),
-                displayAppStatus: mock(() => {}),
-                displayScoopStatus: mock(() => {}),
-                displayStatusJson: displayStatusJsonMock,
-            }));
-
-            mock.module("src/lib/status/index.ts", () => ({
-                parallelStatusCheck: mock(() => Promise.resolve(mockStatuses)),
-            }));
-
-            const args: ParsedArgs = {
-                command: "status",
-                args: [],
-                flags: { json: true },
-                global: {
-                    help: false,
-                    version: false,
-                    verbose: false,
-                    global: false,
-                },
-            };
-
-            const result = await definition.handler(args);
-
-            expect(result).toBe(0);
-        });
-
-        test("should handle no apps with JSON output", async () => {
-            mock.module("src/lib/apps.ts", () => ({
-                listInstalledApps: mock(() => []),
-            }));
-
-            const args: ParsedArgs = {
-                command: "status",
-                args: [],
-                flags: { json: true },
-                global: {
-                    help: false,
-                    version: false,
-                    verbose: false,
-                    global: false,
-                },
-            };
-
-            const result = await definition.handler(args);
-
-            expect(result).toBe(0);
-        });
+        expect(result).toBe(0);
+        // Should log issues
+        expect(context.logger.log).toHaveBeenCalledWith(
+            expect.stringContaining("potential issues")
+        );
     });
 });

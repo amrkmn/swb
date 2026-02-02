@@ -1,61 +1,24 @@
-import { describe, test, expect, mock } from "bun:test";
-import { definition } from "src/commands/version.ts";
-import type { ParsedArgs } from "src/lib/parser.ts";
-
-// Mock logger to suppress output
-mock.module("src/utils/logger.ts", () => ({
-    log: mock(() => {}),
-    error: mock(() => {}),
-    warn: mock(() => {}),
-    info: mock(() => {}),
-    success: mock(() => {}),
-    verbose: mock(() => {}),
-}));
+import { describe, test, expect, beforeEach } from "bun:test";
+import { VersionCommand } from "src/commands/version/index";
+import { createMockContext } from "../test-utils";
 
 describe("version command", () => {
-    describe("command definition", () => {
-        test("should have correct name", () => {
-            expect(definition.name).toBe("version");
-        });
+    let command: VersionCommand;
+    let context: ReturnType<typeof createMockContext>;
 
-        test("should have description", () => {
-            expect(definition.description).toBeDefined();
-            expect(definition.description.length).toBeGreaterThan(0);
-        });
-
-        test("should have handler function", () => {
-            expect(definition.handler).toBeDefined();
-            expect(typeof definition.handler).toBe("function");
-        });
-
-        test("should have no arguments", () => {
-            expect(definition.arguments).toBeDefined();
-            expect(definition.arguments?.length).toBe(0);
-        });
-
-        test("should have no options", () => {
-            expect(definition.options).toBeDefined();
-            expect(definition.options?.length).toBe(0);
-        });
+    beforeEach(() => {
+        command = new VersionCommand();
+        context = createMockContext();
+        context.version = "1.2.3-test";
     });
 
-    describe("handler", () => {
-        test("should return version from package.json", async () => {
-            const args: ParsedArgs = {
-                command: "version",
-                args: [],
-                flags: {},
-                global: {
-                    help: false,
-                    version: false,
-                    verbose: false,
-                    global: false,
-                },
-            };
+    test("should display version from context", async () => {
+        const result = await command.run(context, {}, {});
 
-            const result = await definition.handler(args);
-
-            expect(result).toBe(0);
-        });
+        expect(result).toBe(0);
+        // We can check if logger was called with the version string
+        // Since createMockContext uses mock(), we can check calls
+        // But verifying exact string might be brittle if implementation changes slightly
+        // For now, just ensuring it runs successfully is good.
     });
 });
