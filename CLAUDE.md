@@ -82,11 +82,13 @@ src/
 ### Key Components
 
 **Entry Point** (`src/cli.ts`)
+
 - `run()` - Main entry point, parses CLI args with `mri`, dispatches to commands
 - `createContext()` - Creates DI container with all services
 - Commands are registered at module level in `src/cli.ts`
 
 **Command System** (`src/core/Command.ts`)
+
 - Abstract `Command<Args, Flags>` class with Zod schema validation
 - `argsSchema` - Zod schema for positional arguments
 - `flagsSchema` - Zod schema for command flags/options
@@ -96,11 +98,13 @@ src/
 - `examples` - Usage examples for help text
 
 **Context Interface** (`src/core/Context.ts`)
+
 - DI container containing: `version`, `logger`, `verbose` flag, and `services`
 - All services extend abstract `Service` class (receives Context in constructor)
 - Services accessed via `ctx.services.buckets`, `ctx.services.workers`, etc.
 
 **WorkerService** (`src/services/WorkerService.ts`)
+
 - Centralized Web Worker orchestration
 - `search()` - Parallel bucket search with progress tracking
 - `updateBucket()` - Parallel git updates for buckets
@@ -111,6 +115,7 @@ src/
 ### Build System
 
 **Bun Build Configuration:**
+
 - Uses `Bun.build()` with compile mode (produces standalone `.exe`)
 - Default target: `bun-windows-x64` (AVX2)
 - Baseline target: `bun-windows-x64-baseline` (with `--baseline` flag)
@@ -118,6 +123,7 @@ src/
 - Workers embedded via Bun's virtual filesystem (`B:/~BUN/root/workers/`)
 
 **Build Script** (`scripts/build.ts`):
+
 - Entrypoints: `src/cli.ts` + all workers (`src/workers/**/*.ts`)
 - Compile-time constants:
   - `SWB_VERSION` - Version string from package.json or env var
@@ -125,11 +131,13 @@ src/
 - Output: `dist/swb.exe`
 
 **Worker Path Resolution** (`src/utils/workers.ts`):
+
 - `getWorkerUrl(workerName)` - Returns worker URL
 - Development mode: Returns `.ts` file URL via `import.meta.url`
 - Compiled mode: Returns embedded path using `SWB_WORKER_PATH`
 
 **Release Script** (`scripts/release.ts`):
+
 - Bumps version in package.json
 - Runs build, creates git tag, pushes to trigger GitHub Actions
 - GitHub Actions builds both AVX2 and baseline variants
@@ -145,6 +153,7 @@ src/
 ### Code Conventions
 
 **TypeScript Configuration:**
+
 - Target: ES2022 with ESNext modules
 - Bundler resolution for imports
 - Strict mode enabled
@@ -166,6 +175,7 @@ import { log } from "src/utils/logger.ts";
 ```
 
 **Formatting (Prettier):**
+
 - Print width: 100
 - Tab width: 4 spaces
 - Semicolons: required
@@ -174,6 +184,7 @@ import { log } from "src/utils/logger.ts";
 - Avoid arrow parens: `x => x`
 
 **Naming Conventions:**
+
 - Files: kebab-case (`my-service.ts`)
 - Classes/Interfaces: PascalCase (`class Command`, `interface Context`)
 - Functions/Variables: camelCase (`getWorkerUrl()`, `bucketCount`)
@@ -181,6 +192,7 @@ import { log } from "src/utils/logger.ts";
 - Private members: underscore prefix (`_privateMethod()`)
 
 **TypeScript Guidelines:**
+
 - Use `type` keyword for type-only imports
 - Explicit types for parameters and return values
 - Prefer interfaces over type aliases for objects
@@ -188,21 +200,25 @@ import { log } from "src/utils/logger.ts";
 - Always check `err instanceof Error` before accessing `.message`
 
 **Windows-Specific:**
+
 - Use `path.win32.join()` for paths - don't hardcode backslashes
 - Use `realpathSync()` for resolving junctions/symlinks
 
 ## Dependencies
 
 ### Runtime
+
 - `mri` ^1.2.0 - Command-line argument parsing
 - `zod` ^4.3.6 - Schema validation for command args/flags
 
 ### Development
+
 - `@types/bun` latest - Bun runtime type definitions
 - `@types/node` ^24.10.9 - Node.js type compatibility
 - `prettier` ^3.8.1 - Code formatting
 
 ### Peer
+
 - `typescript` ^5.9.3 - TypeScript compiler support
 
 ## Testing
@@ -241,6 +257,7 @@ Follow the Conventional Commits specification:
 ```
 
 ### Types
+
 - `feat` - New feature or enhancement
 - `fix` - Bug fix
 - `chore` - Maintenance tasks (deps, release, cleanup)
@@ -252,9 +269,11 @@ Follow the Conventional Commits specification:
 - `ci` - CI/CD configuration changes
 
 ### Scopes (optional but recommended)
+
 Common scopes: `release`, `search`, `help`, `cleanup`, `build`, `ci`, `ui`, `status`
 
 ### Examples
+
 ```bash
 feat(release): add automatic changelog generation
 fix(search): improve progress bar feedback during post-processing
@@ -267,6 +286,7 @@ test: add test files for all commands
 ```
 
 ### Guidelines
+
 - Use present tense ("add feature" not "added feature")
 - Use imperative mood ("move cursor to..." not "moves cursor to...")
 - Keep subject line under 72 characters

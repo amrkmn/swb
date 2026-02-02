@@ -7,6 +7,7 @@ Scoop With Bun (swb) is a JavaScript implementation of Scoop (Windows package ma
 ## Architecture
 
 ### Core Architecture Pattern
+
 SWB uses a **services-based architecture** with dependency injection:
 
 - **Entry Point**: `src/cli.ts` - Contains `run()` main entry and `createContext()` for DI
