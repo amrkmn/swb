@@ -1,6 +1,6 @@
 import { $ } from "bun";
 import { generateChangelog, getCommitsSince } from "./changelog.ts";
-import * as git from "../src/lib/git.ts";
+import * as git from "../src/utils/git.ts";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 

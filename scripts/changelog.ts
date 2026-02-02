@@ -1,4 +1,4 @@
-import * as git from "../src/lib/git.ts";
+import * as git from "../src/utils/git.ts";
 
 interface Commit {
     hash: string;
