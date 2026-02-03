@@ -138,14 +138,14 @@ export class StatusCommand extends Command<typeof StatusArgs, typeof StatusFlags
 
         // Display Scoop status
         if (scoopOutdated) {
-            logger.log("Scoop is out of date. Run 'swb bucket update' to get latest version.");
+            logger.log("Scoop is out of date. Run 'scoop update' to get latest version.");
         } else {
             logger.success("Scoop is up to date.");
         }
 
         // Display bucket status
         if (bucketsOutdated) {
-            logger.log("Bucket(s) are out of date. Run 'swb bucket update' to get latest changes.");
+            logger.log("Bucket(s) are out of date. Run 'scoop update' to get latest changes.");
         } else {
             logger.success("All buckets are up to date.");
         }

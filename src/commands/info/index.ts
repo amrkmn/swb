@@ -7,10 +7,7 @@ const InfoArgs = z.object({
     app: z.string().min(1, "App name is required"),
 });
 
-const InfoFlags = z.object({
-    verbose: z.boolean().default(false),
-    v: z.boolean().default(false),
-});
+const InfoFlags = z.object({});
 
 export class InfoCommand extends Command<typeof InfoArgs, typeof InfoFlags> {
     name = "info";
@@ -18,11 +15,10 @@ export class InfoCommand extends Command<typeof InfoArgs, typeof InfoFlags> {
     argsSchema = InfoArgs;
     flagsSchema = InfoFlags;
 
-    async run(ctx: Context, args: z.infer<typeof InfoArgs>, flags: z.infer<typeof InfoFlags>) {
+    async run(ctx: Context, args: z.infer<typeof InfoArgs>, _flags: z.infer<typeof InfoFlags>) {
         const { logger, services } = ctx;
         const manifestService = services.manifests;
         const appName = args.app;
-        const verbose = flags.verbose || flags.v;
 
         const results = manifestService.findAllManifests(appName);
 
@@ -34,13 +30,27 @@ export class InfoCommand extends Command<typeof InfoArgs, typeof InfoFlags> {
             return 1;
         }
 
-        // Show the primary result (prefer installed if available)
-        const primary = results.find(r => r.source === "installed") || results[0];
+        const { installed, bucket } = manifestService.findManifestPair(appName);
+        const primary = installed || bucket;
 
-        // Extract fields using the service helper
-        const fields = manifestService.readManifestFields(appName, primary);
+        if (results.length > 1 && !installed) {
+            logger.info(`Found '${appName}' in ${results.length} bucket(s):`);
+            results.forEach((r, i) => {
+                if (r.source === "bucket") {
+                    logger.info(`  ${i + 1}. ${r.bucket} (version: ${r.manifest.version})`);
+                }
+            });
+            logger.info(`\nShowing info from: ${primary?.bucket || "first result"}`);
+        }
 
-        await printInfo(logger, primary, fields, verbose);
+        const fields = manifestService.readManifestPair(appName, installed, bucket);
+
+        if (!primary) {
+            logger.error("No manifest found");
+            return 1;
+        }
+
+        await printInfo(logger, primary, fields);
 
         return 0;
     }

@@ -15,11 +15,15 @@ export interface FoundManifest {
 export interface InfoFields {
     name: string;
     version: string;
+    installedVersion?: string | null;
+    latestVersion?: string | null;
     description: string;
     homepage: string;
     license: string | { identifier: string; url?: string };
     source?: string;
     deprecated?: boolean;
+    updateAvailable?: boolean;
+    installDate?: string | null;
 }
 
 export class ManifestService extends Service {
@@ -221,5 +225,77 @@ export class ManifestService extends Service {
         }
 
         return fields;
+    }
+
+    readManifestPair(
+        app: string,
+        installed: FoundManifest | null,
+        bucket: FoundManifest | null
+    ): InfoFields {
+        const fields: InfoFields = {
+            name: app,
+            version: bucket?.manifest?.version || installed?.manifest?.version || "unknown",
+            description: bucket?.manifest?.description || installed?.manifest?.description || "",
+            homepage: bucket?.manifest?.homepage || installed?.manifest?.homepage || "",
+            license: "",
+        };
+
+        if (bucket?.manifest?.license) {
+            const m = bucket.manifest;
+            if (typeof m.license === "string") {
+                fields.license = m.license;
+            } else if (typeof m.license === "object" && m.license.identifier) {
+                fields.license = m.license;
+            }
+        }
+
+        fields.installedVersion = installed?.manifest?.version || null;
+        fields.latestVersion = bucket?.manifest?.version || null;
+
+        if (
+            fields.installedVersion &&
+            fields.latestVersion &&
+            fields.installedVersion !== fields.latestVersion
+        ) {
+            fields.updateAvailable = true;
+        }
+
+        fields.deprecated = Boolean(
+            bucket?.manifest?.deprecated ||
+            bucket?.manifest?.DELETED ||
+            bucket?.manifest?.deprecated_by
+        );
+
+        const primarySource = bucket || installed;
+        if (primarySource) {
+            if (primarySource.source === "bucket") {
+                fields.source = primarySource.bucket || "bucket";
+            } else {
+                if (primarySource.bucket) fields.source = primarySource.bucket;
+                else if (typeof primarySource.manifest?.bucket === "string")
+                    fields.source = primarySource.manifest.bucket;
+                else if (typeof primarySource.manifest?._source === "string")
+                    fields.source = primarySource.manifest._source;
+                else if (
+                    typeof primarySource.manifest?.scoop === "object" &&
+                    typeof primarySource.manifest.scoop.bucket === "string"
+                )
+                    fields.source = primarySource.manifest.scoop.bucket;
+                else fields.source = "installed";
+            }
+        }
+
+        return fields;
+    }
+
+    findManifestPair(input: string): {
+        installed: FoundManifest | null;
+        bucket: FoundManifest | null;
+    } {
+        const results = this.findAllManifests(input);
+        return {
+            installed: results.find(r => r.source === "installed") || null,
+            bucket: results.find(r => r.source === "bucket") || null,
+        };
     }
 }

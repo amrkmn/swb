@@ -11,7 +11,7 @@ describe("info command", () => {
         context = createMockContext();
     });
 
-    test("should display app info", async () => {
+    test("should display app info with both versions", async () => {
         context.services.manifests.findAllManifests = mock(() => [
             {
                 source: "installed",
@@ -20,31 +20,71 @@ describe("info command", () => {
                 filePath: "/path/to/manifest.json",
                 manifest: { version: "1.0.0", description: "Test App" },
             } as any,
+            {
+                source: "bucket",
+                scope: "user",
+                bucket: "main",
+                app: "test-app",
+                filePath: "/buckets/main/test-app.json",
+                manifest: {
+                    version: "1.1.0",
+                    description: "Test App",
+                    license: "MIT",
+                    homepage: "http://example.com",
+                },
+            } as any,
         ]);
 
-        context.services.manifests.readManifestFields = mock(() => ({
+        context.services.manifests.findManifestPair = mock(() => ({
+            installed: {
+                source: "installed",
+                scope: "user",
+                app: "test-app",
+                filePath: "/path/to/manifest.json",
+                manifest: { version: "1.0.0", description: "Test App" },
+            } as any,
+            bucket: {
+                source: "bucket",
+                scope: "user",
+                bucket: "main",
+                app: "test-app",
+                filePath: "/buckets/main/test-app.json",
+                manifest: {
+                    version: "1.1.0",
+                    description: "Test App",
+                    license: "MIT",
+                    homepage: "http://example.com",
+                },
+            } as any,
+        }));
+
+        context.services.manifests.readManifestPair = mock(() => ({
             name: "test-app",
-            version: "1.0.0",
+            version: "1.1.0",
+            installedVersion: "1.0.0",
+            latestVersion: "1.1.0",
             description: "Test App",
             homepage: "http://example.com",
             license: "MIT",
-            source: "bucket",
+            source: "main",
+            updateAvailable: true,
         }));
 
         const args = { app: "test-app" };
-        const flags = { verbose: false, v: false };
+        const flags = {};
 
         const result = await command.run(context, args, flags);
 
         expect(result).toBe(0);
         expect(context.services.manifests.findAllManifests).toHaveBeenCalledWith("test-app");
+        expect(context.services.manifests.findManifestPair).toHaveBeenCalledWith("test-app");
     });
 
     test("should error if app not found", async () => {
         context.services.manifests.findAllManifests = mock(() => []);
 
         const args = { app: "nonexistent" };
-        const flags = { verbose: false, v: false };
+        const flags = {};
 
         const result = await command.run(context, args, flags);
 
