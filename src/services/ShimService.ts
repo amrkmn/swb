@@ -168,10 +168,18 @@ export class ShimService extends Service {
     }
 
     private findInPATH(name: string): string[] {
-        const cands = this.candidatesForName(name);
         const matches: string[] = [];
         const seen = new Set<string>();
 
+        // Use Bun.which() to find the first match in PATH
+        const firstMatch = Bun.which(name);
+        if (firstMatch) {
+            seen.add(firstMatch.toLowerCase());
+            matches.push(firstMatch);
+        }
+
+        // Continue searching PATH for additional matches
+        const cands = this.candidatesForName(name);
         let PATH = process.env.Path || process.env.PATH || "";
         const dirs = PATH.split(path.delimiter)
             .map(d => d.trim())
