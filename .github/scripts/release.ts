@@ -42,7 +42,7 @@ async function buildAndUpload(): Promise<void> {
     await $`bun run build ${buildArgs}`.env(process.env);
 
     // Create release archive
-    const dirname = `swb-v${version}-${platform}`;
+    const dirname = `swb-${platform}`;
     const zipname = `${dirname}.zip`;
 
     console.log(`Creating archive: ${zipname}`);
@@ -69,16 +69,10 @@ async function buildAndUpload(): Promise<void> {
     const size = parseInt(statOutput.trim(), 10);
 
     // Save metadata as artifact for fallback
-    const metadata = {
-        version,
-        platform,
-        filename: zipname,
-        hash,
-        size,
-    };
+    const metadata = { hash, size };
     await $`mkdir -p artifacts`.quiet();
-    await Bun.write(`artifacts/${platform}-metadata.json`, JSON.stringify(metadata, null, 2));
-    console.log(`Saved metadata: ${platform}-metadata.json`);
+    await Bun.write(`artifacts/${zipname}.json`, JSON.stringify(metadata, null, 2));
+    console.log(`Saved metadata: ${zipname}.json`);
 
     // Upload to release
     console.log(`Uploading ${basename} to v${version}...`);
@@ -90,110 +84,74 @@ async function buildAndUpload(): Promise<void> {
 async function generateLatestJson(): Promise<void> {
     console.log(`Generating latest.json for version ${version}...`);
 
-    interface PlatformMetadata {
-        filename: string;
+    interface ReleaseMetadata {
         hash: string;
         size: number;
     }
 
-    type MetadataMap = Record<string, PlatformMetadata | null>;
-
-    const metadata: MetadataMap = {};
-
-    // Extract platform name from zip filename pattern: swb-v{version}-{platform}.zip
-    const extractPlatform = (filename: string): string | null => {
-        const match = filename.match(new RegExp(`^swb-v${version}-(.+)\.zip$`));
-        return match ? match[1] : null;
-    };
+    const metadata = new Map<string, ReleaseMetadata>();
 
     // Try GitHub API first
     try {
         const assetsJson =
-            await $`gh api repos/${repoName}/releases/tags/v${version} --json assets --jq '.assets[] | select(.name | endswith(".zip") and (contains(".sha256") | not))'`.text();
+            await $`gh api repos/${repoName}/releases/tags/v${version} --json assets --jq '.assets[] | select(.name | endswith(".zip") and (contains(".sha256") | not)) | {name: .name, size: .size, digest: .digest}'`.text();
 
-        interface Asset {
-            name: string;
-            size: number;
-            digest?: string;
-            browserDownloadUrl: string;
-        }
-
-        const assets: Asset[] =
-            JSON.parse("[" + assetsJson.trim().split("\n").join(",") + "]") || [];
+        const assets = JSON.parse(`[${assetsJson.trim().split("\n").join(",")}]`) || [];
 
         if (assets.length > 0) {
             console.log("Using GitHub API for metadata");
 
             for (const asset of assets) {
-                const platform = extractPlatform(asset.name);
-
-                if (platform && asset.digest && asset.digest.trim() !== "") {
-                    metadata[platform] = {
-                        filename: asset.name,
+                if (asset.digest?.trim()) {
+                    metadata.set(asset.name, {
                         hash: asset.digest.replace(/^sha256:/, ""),
                         size: asset.size,
-                    };
-                    console.log(`Using GitHub API for ${platform} metadata`);
-                } else if (platform) {
-                    console.warn(
-                        `${platform} digest is empty or missing, will use artifact fallback`
-                    );
+                    });
+                    console.log(`Using GitHub API for ${asset.name} metadata`);
+                } else {
+                    console.warn(`${asset.name} digest is empty, will use artifact fallback`);
                 }
             }
         }
-    } catch (error) {
+    } catch {
         console.warn("GitHub API metadata not available, using artifacts as fallback");
     }
 
-    // Fallback to artifacts for any missing platforms
+    // Fallback to artifacts for missing releases
     const artifactFilesText = await $`ls artifacts/*.json 2>/dev/null || true`.quiet().text();
     const artifactFiles = artifactFilesText.trim().split("\n").filter(Boolean);
 
     for (const artifactPath of artifactFiles) {
-        const filenameMatch = artifactPath.match(/artifacts\/(.+)-metadata\.json$/);
+        const match = artifactPath.match(/artifacts\/(.+)\.json$/);
+        if (!match) continue;
 
-        if (filenameMatch) {
-            const platform = filenameMatch[1];
-            const artifactFile = Bun.file(artifactPath);
+        const filename = match[1];
+        if (metadata.has(filename)) continue;
 
-            if (!metadata[platform] && artifactFile.size > 0) {
-                const data = await artifactFile.json();
-                metadata[platform] = {
-                    filename: data.filename,
-                    hash: data.hash,
-                    size: data.size,
-                };
-                console.log(`Loaded ${platform} metadata from artifact`);
-            }
-        }
+        const data = await Bun.file(artifactPath).json();
+        metadata.set(filename, { hash: data.hash, size: data.size });
+        console.log(`Loaded ${filename} metadata from artifact`);
     }
 
-    if (Object.keys(metadata).length === 0) {
-        console.error("No platform metadata available from API or artifacts");
+    if (metadata.size === 0) {
+        console.error("No release metadata available from API or artifacts");
         process.exit(1);
     }
 
-    const platforms: Record<string, { url: string; hash: string; size: number }> = {};
+    // Build releases object
+    const releases: Record<string, { url: string; hash: string; size: number }> = {};
 
-    for (const [platform, platformMetadata] of Object.entries(metadata)) {
-        if (platformMetadata) {
-            platforms[platform] = {
-                url: `https://github.com/${repoName}/releases/download/v${version}/${platformMetadata.filename}`,
-                hash: platformMetadata.hash,
-                size: platformMetadata.size,
-            };
-        }
+    for (const [filename, meta] of Array.from(metadata.entries())) {
+        releases[filename] = {
+            url: `https://github.com/${repoName}/releases/download/v${version}/${filename}`,
+            hash: meta.hash,
+            size: meta.size,
+        };
     }
 
-    const latestJson = {
-        version,
-        platforms,
-    };
+    const latestJson = { version, releases };
 
-    // Create dist directory if it doesn't exist
     await $`mkdir -p dist`.quiet();
-
-    // Write latest.json
     await Bun.write("dist/latest.json", JSON.stringify(latestJson, null, 2));
 
     console.log("Generated latest.json:");
