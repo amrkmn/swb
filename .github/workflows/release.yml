@@ -37,13 +37,9 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                variant:
-                    - name: "AVX2"
-                      suffix: ""
-                      build_flag: ""
-                    - name: "Baseline"
-                      suffix: "-baseline"
-                      build_flag: "--baseline"
+                platform:
+                    - "windows-x64"
+                    - "windows-x64-baseline"
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
@@ -53,53 +49,49 @@ jobs:
               with:
                   bun-version: latest
 
-            - name: Install dependencies
-              run: bun install --frozen-lockfile
-
-            - name: Extract version from tag
-              id: version
-              shell: bash
-              run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-            - name: Build executable (${{ matrix.variant.name }})
-              run: bun run build ${{ matrix.variant.build_flag }}
-              env:
-                  SWB_VERSION: ${{ steps.version.outputs.VERSION }}
-
-            - name: Create release archive
-              run: |
-                  version="${{ steps.version.outputs.VERSION }}"
-                  suffix="${{ matrix.variant.suffix }}"
-                  dirname="swb-v${version}-windows-x64${suffix}"
-                  zipname="${dirname}.zip"
-
-                  # Create directory structure
-                  mkdir -p "dist/${dirname}"
-
-                  # Copy files into directory
-                  cp dist/swb.exe "dist/${dirname}/"
-                  cp README.md "dist/${dirname}/"
-                  cp LICENSE "dist/${dirname}/"
-
-                  # Create zip with directory structure
-                  cd dist
-                  zip -r "${zipname}" "${dirname}"
-
-                  # Clean up temporary directory
-                  rm -rf "${dirname}"
-
-            - name: Upload to Release
+            - name: Build and Upload (${{ matrix.platform }})
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  version="${{ steps.version.outputs.VERSION }}"
-                  basename="dist/swb-v${version}-windows-x64${{ matrix.variant.suffix }}.zip"
+                  version=${GITHUB_REF#refs/tags/v}
+                  bun run .github/scripts/release.ts build --platform ${{ matrix.platform }} $version
 
-                  echo "Uploading $basename to v$version..."
-                  gh release upload "v${version}" "$basename" --clobber
+            - name: Upload metadata artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: metadata-${{ matrix.platform }}
+                  path: artifacts/*.json
+                  retention-days: 1
 
-                  # Generate and upload SHA256 checksum
-                  sha256name="${basename}.sha256"
-                  sha256sum "$basename" | awk '{print $1}' > "$sha256name"
-                  echo "Uploading $sha256name to v$version..."
-                  gh release upload "v${version}" "$sha256name" --clobber
+    create-latest-json:
+        needs: build-and-upload
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Download metadata artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+                  pattern: metadata-*
+                  merge-multiple: true
+
+            - name: Generate latest.json
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  version=${GITHUB_REF#refs/tags/v}
+                  bun run .github/scripts/release.ts json $version
+
+            - name: Upload latest.json
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  version=${GITHUB_REF#refs/tags/v}
+                  gh release upload "v${version}" dist/latest.json --clobber
