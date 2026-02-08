@@ -33,34 +33,51 @@ export class SearchCommand extends Command<typeof SearchArgs, typeof SearchFlags
 
         logger.verbose(`Starting search for: "${args.query}"`);
 
+        // If --installed flag is set, get installed apps first for early filtering
+        let installedApps: string[] | undefined;
+        const installedMap = new Map<string, { bucket?: string; scope: string }>();
+
+        if (flags.installed) {
+            const apps = appsService.listInstalled();
+            installedApps = apps.map(app => app.name.toLowerCase());
+
+            for (const app of apps) {
+                installedMap.set(app.name.toLowerCase(), {
+                    bucket: app.bucket || undefined,
+                    scope: app.scope,
+                });
+            }
+
+            logger.verbose(`Filtering for ${installedApps.length} installed apps`);
+        }
+
         // Start search
         const results = await workerService.search(
             args.query,
             {
                 bucket: flags.bucket,
                 caseSensitive: false,
+                installedApps,
             },
             (completed: number, total: number, bucket: string) => {
                 // Progress callback
             }
         );
 
-        logger.verbose(`Found ${results.length} matches. Checking installed status...`);
-
-        // Use AppsService to check installed status
-        const installedApps = appsService.listInstalled();
-        const installedMap = new Map<string, { bucket?: string; scope: string }>();
-
-        for (const app of installedApps) {
-            installedMap.set(app.name.toLowerCase(), {
-                bucket: app.bucket || undefined,
-                scope: app.scope,
-            });
-        }
+        logger.verbose(`Found ${results.length} matches`);
 
         const finalResults = results.map((result: any) => {
+            if (flags.installed) {
+                // Already filtered by worker, just add scope info
+                const installed = installedMap.get(result.name.toLowerCase());
+                return {
+                    ...result,
+                    isInstalled: true,
+                    scope: installed?.scope === "global" ? ("global" as const) : result.scope,
+                };
+            }
+
             const installed = installedMap.get(result.name.toLowerCase());
-            // Looser check: if bucket matches OR if we don't know the installed bucket (legacy)
             const isInstalled =
                 !!installed && (installed.bucket === result.bucket || !installed.bucket);
 
@@ -71,13 +88,8 @@ export class SearchCommand extends Command<typeof SearchArgs, typeof SearchFlags
             };
         });
 
-        // Filter installed only
-        const filteredResults = flags.installed
-            ? finalResults.filter((r: any) => r.isInstalled)
-            : finalResults;
-
         // Cast back to SearchResult[] for the view
-        formatSearchResults(logger, filteredResults as any[], flags.verbose);
+        formatSearchResults(logger, finalResults as any[], flags.verbose);
 
         return 0;
     }

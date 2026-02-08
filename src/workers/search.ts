@@ -14,6 +14,7 @@ export interface WorkerSearchMessage {
     bucketDir: string;
     query: string;
     caseSensitive: boolean;
+    installedApps?: string[];
 }
 
 export interface WorkerSearchResult {
@@ -68,13 +69,17 @@ function scanBucket(
     bucketName: string,
     bucketDir: string,
     query: string,
-    caseSensitive: boolean
+    caseSensitive: boolean,
+    installedApps?: string[]
 ): WorkerSearchResult[] {
     const results: WorkerSearchResult[] = [];
 
     try {
         const files = readdirSync(bucketDir, { withFileTypes: true });
         const q = caseSensitive ? query : query.toLowerCase();
+
+        // Convert installedApps to Set for O(1) lookup if provided
+        const installedSet = installedApps ? new Set(installedApps) : undefined;
 
         for (const file of files) {
             if (!file.isFile() || !file.name.endsWith(".json")) continue;
@@ -85,6 +90,9 @@ function scanBucket(
             // Optimization: Check if name matches before reading file
             // This skips reading/parsing thousands of files that don't match
             if (!nameLower.includes(q)) continue;
+
+            // Optimization: If installedApps filter is set and app is not installed, skip
+            if (installedSet && !installedSet.has(nameLower)) continue;
 
             const filePath = join(bucketDir, file.name);
 
@@ -112,11 +120,11 @@ function scanBucket(
 
 // Worker message handler
 self.onmessage = (event: MessageEvent<WorkerSearchMessage>) => {
-    const { bucketName, bucketDir, query, caseSensitive } = event.data;
+    const { bucketName, bucketDir, query, caseSensitive, installedApps } = event.data;
     const startTime = performance.now();
 
     try {
-        const results = scanBucket(bucketName, bucketDir, query, caseSensitive);
+        const results = scanBucket(bucketName, bucketDir, query, caseSensitive, installedApps);
         const searchTime = Math.round(performance.now() - startTime);
 
         const response: WorkerResponse = {

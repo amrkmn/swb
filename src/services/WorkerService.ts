@@ -158,6 +158,7 @@ export class WorkerService extends Service {
         options: {
             caseSensitive?: boolean;
             bucket?: string;
+            installedApps?: string[];
         } = {},
         onProgress?: (completed: number, total: number, bucketName: string) => void
     ): Promise<SearchResult[]> {
@@ -215,6 +216,7 @@ export class WorkerService extends Service {
                         bucketDir: bucket.bucketDir.replace(/\\/g, "/"),
                         query,
                         caseSensitive: options.caseSensitive || false,
+                        installedApps: options.installedApps,
                     };
 
                     worker.postMessage(message);
