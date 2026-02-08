@@ -50,9 +50,10 @@ self.onmessage = async (event: MessageEvent<BucketUpdateJob>) => {
 
         await git.fetch(bucketPath);
 
-        // Get commits before pulling (always check to determine status)
-        const commitsBefore = await git.getCommitsSinceRemote(bucketPath);
-        const hasUpdates = commitsBefore.length > 0;
+        const commitsBefore = showChangelog ? await git.getCommitsSinceRemote(bucketPath) : [];
+        const hasUpdates = showChangelog
+            ? commitsBefore.length > 0
+            : await git.hasRemoteUpdates(bucketPath);
 
         // Pull updates
         if (hasUpdates) await git.pull(bucketPath);
