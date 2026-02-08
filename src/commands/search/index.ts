@@ -33,21 +33,21 @@ export class SearchCommand extends Command<typeof SearchArgs, typeof SearchFlags
 
         logger.verbose(`Starting search for: "${args.query}"`);
 
-        // If --installed flag is set, get installed apps first for early filtering
-        let installedApps: string[] | undefined;
+        // Get installed apps for displaying installation status
+        const apps = appsService.listInstalled();
         const installedMap = new Map<string, { bucket?: string; scope: string }>();
 
+        for (const app of apps) {
+            installedMap.set(app.name.toLowerCase(), {
+                bucket: app.bucket || undefined,
+                scope: app.scope,
+            });
+        }
+
+        // If --installed flag is set, also create list for early filtering
+        let installedApps: string[] | undefined;
         if (flags.installed) {
-            const apps = appsService.listInstalled();
             installedApps = apps.map(app => app.name.toLowerCase());
-
-            for (const app of apps) {
-                installedMap.set(app.name.toLowerCase(), {
-                    bucket: app.bucket || undefined,
-                    scope: app.scope,
-                });
-            }
-
             logger.verbose(`Filtering for ${installedApps.length} installed apps`);
         }
 
