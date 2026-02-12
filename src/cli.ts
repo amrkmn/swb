@@ -147,7 +147,7 @@ function getMriOptions(cmd: Command) {
 }
 
 function printHelp() {
-    header("swb - Scoop Web Bundle (v2)");
+    header("swb - Scoop With Bun (v2)");
     newline();
     info("Usage: swb <command> [options]");
     newline();
