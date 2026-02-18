@@ -357,7 +357,7 @@ export class WorkerService extends Service {
             return [];
         }
 
-        const maxWorkers = Math.max(1, options.maxWorkers ?? 4);
+        const maxWorkers = Math.max(1, options.maxWorkers ?? names.length);
         const workerCount = Math.min(names.length, maxWorkers);
         const results: BucketUpdateResult[] = new Array(names.length);
         let cursor = 0;
