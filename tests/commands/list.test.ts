@@ -17,7 +17,7 @@ describe("list command", () => {
             { name: "app2", version: "2.0.0", scope: "global" } as any,
         ]);
 
-        const result = await command.run(context, {}, { json: false, j: false });
+        const result = await command.run(context, {}, { json: false });
 
         expect(result).toBe(0);
         expect(context.services.apps.listInstalled).toHaveBeenCalled();
@@ -28,7 +28,7 @@ describe("list command", () => {
             { name: "app1", version: "1.0.0", scope: "user" } as any,
         ]);
 
-        const result = await command.run(context, {}, { json: true, j: true });
+        const result = await command.run(context, {}, { json: true });
 
         expect(result).toBe(0);
         expect(context.logger.log).toHaveBeenCalled();

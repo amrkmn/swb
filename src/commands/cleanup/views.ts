@@ -35,15 +35,7 @@ export function displayAppCleanupResult(logger: Logger, result: CleanupResult, m
     const freedStr = totalSpace > 0 ? ` (${dim(formatSize(totalSpace))})` : "";
 
     // Pad app name to align columns
-    let paddedName = result.app;
-
-    if (maxWidth > 0) {
-        const currentWidth = result.app.length;
-        const spacesToAdd = maxWidth - currentWidth;
-        if (spacesToAdd > 0) {
-            paddedName = result.app + " ".repeat(spacesToAdd);
-        }
-    }
+    let paddedName = result.app.padEnd(maxWidth);
 
     logger.log(`${paddedName} : ${versions}${freedStr}${scopeStr}`);
 }

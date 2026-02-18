@@ -81,11 +81,9 @@ export class CleanupCommand extends Command<typeof CleanupArgs, typeof CleanupFl
             results.push(result);
         }
 
-        // Calculate max width for alignment
         let maxWidth = 0;
         for (const result of results) {
-            // Simple length check
-            if (result.app.length > maxWidth) maxWidth = result.app.length;
+            if (result.app.length > maxWidth) maxWidth = Bun.stringWidth(result.app);
         }
 
         for (const result of results) {

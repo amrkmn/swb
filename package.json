@@ -15,8 +15,9 @@
         "changelog": "bun run scripts/changelog.ts",
         "test": "bun test",
         "format": "prettier --write .",
-        "format:check": "prettier --check .",
-        "format:src": "prettier --write src/ scripts/"
+        "lint": "prettier --check .",
+        "format:src": "prettier --write src/ scripts/",
+        "typecheck": "bun tsc --noEmit"
     },
     "type": "module",
     "module": "dist/cli.js",

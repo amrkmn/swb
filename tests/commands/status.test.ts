@@ -25,11 +25,7 @@ describe("status command", () => {
             ])
         );
 
-        const result = await command.run(
-            context,
-            {},
-            { local: false, l: false, verbose: false, v: false }
-        );
+        const result = await command.run(context, {}, { local: false, verbose: false });
 
         expect(result).toBe(0);
         expect(context.logger.success).toHaveBeenCalledWith(
@@ -58,11 +54,7 @@ describe("status command", () => {
             ])
         );
 
-        const result = await command.run(
-            context,
-            {},
-            { local: false, l: false, verbose: false, v: false }
-        );
+        const result = await command.run(context, {}, { local: false, verbose: false });
 
         expect(result).toBe(0);
         // Should log issues

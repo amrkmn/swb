@@ -8,7 +8,8 @@
         "noEmit": true,
         "allowImportingTsExtensions": true,
         "baseUrl": ".",
-        "types": ["@types/bun"]
+        "types": ["@types/bun"],
+        "skipLibCheck": true
     },
     "include": ["src/**/*.ts", "src/types/**/*.d.ts", "tests/**/*.ts"]
 }
