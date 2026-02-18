@@ -48,20 +48,33 @@ self.onmessage = async (event: MessageEvent<BucketUpdateJob>) => {
             return;
         }
 
-        await git.fetch(bucketPath);
+        const commitBeforePull = await git.getCommitHash("HEAD", bucketPath);
+        if (!commitBeforePull) {
+            throw new Error("Unable to read current commit hash");
+        }
 
-        const commitsBefore = showChangelog ? await git.getCommitsSinceRemote(bucketPath) : [];
-        const hasUpdates = showChangelog
-            ? commitsBefore.length > 0
-            : await git.hasRemoteUpdates(bucketPath);
+        await git.pull(bucketPath);
 
-        // Pull updates
-        if (hasUpdates) await git.pull(bucketPath);
+        const commitAfterPull = await git.getCommitHash("HEAD", bucketPath);
+        if (!commitAfterPull) {
+            throw new Error("Unable to read updated commit hash");
+        }
+
+        const hasUpdates = commitBeforePull !== commitAfterPull;
+        let commits: string[] | undefined;
+
+        if (showChangelog && hasUpdates) {
+            const commitLog = await git.getCommitsSince(commitBeforePull, "format:%s", bucketPath);
+            commits = commitLog
+                .split("\n")
+                .map(line => line.trim())
+                .filter(Boolean);
+        }
 
         const result: BucketUpdateResult = {
             name,
             status: hasUpdates ? "updated" : "up-to-date",
-            commits: showChangelog ? commitsBefore : undefined,
+            commits,
         };
 
         const response: BucketUpdateResponse = {

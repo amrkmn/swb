@@ -90,7 +90,7 @@ async function main() {
     // Check code formatting
     console.log("Checking code formatting...");
     try {
-        await $`bun run format:check`.quiet();
+        await $`bun run lint`.quiet();
     } catch {
         console.log("   Code not formatted. Running formatter...");
         await $`bun run format`.quiet();

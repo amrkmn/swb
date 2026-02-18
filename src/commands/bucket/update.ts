@@ -77,34 +77,23 @@ export class BucketUpdateCommand extends Command<typeof UpdateArgs, typeof Updat
             }
         }, 300);
 
-        // Create promise for each bucket
-        const promises = bucketsToUpdate.map(async (name, index) => {
-            // Mark as updating
-            bucketProgress[index].status = "updating";
-            bucketProgress[index].message = "Updating...";
-            this.displayProgress(bucketProgress);
-
-            try {
-                // Use worker service
-                const result = await workerService.updateBucket(name, scope, showChangelog);
-
+        const results = await workerService.updateBuckets(bucketsToUpdate, scope, showChangelog, {
+            onStart: (_, index) => {
+                bucketProgress[index].status = "updating";
+                bucketProgress[index].message = "Updating...";
+                this.displayProgress(bucketProgress);
+            },
+            onComplete: (result, index) => {
                 bucketProgress[index].status = result.status;
                 bucketProgress[index].commits = result.commits;
 
                 if (result.status === "failed") {
                     bucketProgress[index].message = result.error || "Unknown error";
                 }
-            } catch (err) {
-                bucketProgress[index].status = "failed";
-                bucketProgress[index].message = err instanceof Error ? err.message : String(err);
-            }
 
-            this.displayProgress(bucketProgress);
-            return bucketProgress[index];
+                this.displayProgress(bucketProgress);
+            },
         });
-
-        // Wait for all
-        const results = await Promise.all(promises);
 
         clearInterval(animationInterval);
         this.displayProgress(bucketProgress);

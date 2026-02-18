@@ -20,7 +20,7 @@ bun run build --baseline # Build with CPU baseline compatibility
 
 # Code formatting
 bun run format       # Format all files with Prettier
-bun run format:check # Check formatting without changes
+bun run lint         # Check formatting without changes
 bun run format:src   # Format only src/ and scripts/ directories
 
 # Releasing

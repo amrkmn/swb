@@ -26,7 +26,7 @@ bun run changelog              # Generate changelog
 
 # Formatting
 bun run format                 # Format all files
-bun run format:check           # Check formatting only
+bun run lint                   # Check formatting only
 bun run format:src             # Format only src/ and scripts/
 ```
 

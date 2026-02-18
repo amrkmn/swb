@@ -22,6 +22,7 @@ export interface WorkerSearchMessage {
     bucketDir: string;
     query: string;
     caseSensitive: boolean;
+    installedApps?: string[];
 }
 
 export interface WorkerSearchResult {
@@ -100,6 +101,34 @@ export interface StatusWorkerResponse {
 }
 
 export class WorkerService extends Service {
+    private runBucketUpdateJob(worker: Worker, job: BucketUpdateJob): Promise<BucketUpdateResult> {
+        return new Promise(resolve => {
+            worker.onmessage = (event: MessageEvent<BucketUpdateResponse>) => {
+                const response = event.data;
+
+                if (response.type === "result" && response.data) {
+                    resolve(response.data);
+                } else {
+                    resolve({
+                        name: job.name,
+                        status: "failed",
+                        error: response.error || "Unknown worker error",
+                    });
+                }
+            };
+
+            worker.onerror = err => {
+                resolve({
+                    name: job.name,
+                    status: "failed",
+                    error: err.message,
+                });
+            };
+
+            worker.postMessage(job);
+        });
+    }
+
     /**
      * Find all buckets across both scopes
      * (Ported from src/lib/search/parallel.ts)
@@ -306,36 +335,60 @@ export class WorkerService extends Service {
         scope: InstallScope,
         showChangelog: boolean
     ): Promise<BucketUpdateResult> {
-        return new Promise(resolve => {
+        const worker = new Worker(getWorkerUrl("bucket/update"));
+        try {
+            return await this.runBucketUpdateJob(worker, { name, scope, showChangelog });
+        } finally {
+            worker.terminate();
+        }
+    }
+
+    async updateBuckets(
+        names: string[],
+        scope: InstallScope,
+        showChangelog: boolean,
+        options: {
+            maxWorkers?: number;
+            onStart?: (name: string, index: number) => void;
+            onComplete?: (result: BucketUpdateResult, index: number) => void;
+        } = {}
+    ): Promise<BucketUpdateResult[]> {
+        if (names.length === 0) {
+            return [];
+        }
+
+        const maxWorkers = Math.max(1, options.maxWorkers ?? 4);
+        const workerCount = Math.min(names.length, maxWorkers);
+        const results: BucketUpdateResult[] = new Array(names.length);
+        let cursor = 0;
+
+        const runners = Array.from({ length: workerCount }, async () => {
             const worker = new Worker(getWorkerUrl("bucket/update"));
 
-            worker.onmessage = (event: MessageEvent<BucketUpdateResponse>) => {
-                const response = event.data;
-                worker.terminate();
+            try {
+                while (cursor < names.length) {
+                    const index = cursor;
+                    const name = names[cursor];
+                    cursor++;
 
-                if (response.type === "result" && response.data) {
-                    resolve(response.data);
-                } else {
-                    resolve({
+                    options.onStart?.(name, index);
+
+                    const result = await this.runBucketUpdateJob(worker, {
                         name,
-                        status: "failed",
-                        error: response.error || "Unknown worker error",
+                        scope,
+                        showChangelog,
                     });
+
+                    results[index] = result;
+                    options.onComplete?.(result, index);
                 }
-            };
-
-            worker.onerror = err => {
+            } finally {
                 worker.terminate();
-                resolve({
-                    name,
-                    status: "failed",
-                    error: err.message,
-                });
-            };
-
-            const job: BucketUpdateJob = { name, scope, showChangelog };
-            worker.postMessage(job);
+            }
         });
+
+        await Promise.all(runners);
+        return results;
     }
 
     /**
