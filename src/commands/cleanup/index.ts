@@ -78,6 +78,13 @@ export class CleanupCommand extends Command<typeof CleanupArgs, typeof CleanupFl
                 dryRun,
                 suppressWarnings: false,
             });
+            const { oldVersions, cacheFiles, failedVersions } = result;
+            if (
+                oldVersions.length === 0 && //
+                cacheFiles.length === 0 &&
+                failedVersions.length === 0
+            )
+                continue;
             results.push(result);
         }
 
