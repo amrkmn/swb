@@ -87,7 +87,7 @@ export class StatusCommand extends Command<typeof StatusArgs, typeof StatusFlags
             return 0;
         }
 
-        logger.log(`Found ${updates.length} potential issues:`);
+        logger.log(`Found ${updates.length} potential updates:`);
         logger.newline();
 
         const tableData: string[][] = [
@@ -122,10 +122,6 @@ export class StatusCommand extends Command<typeof StatusArgs, typeof StatusFlags
 
         logger.log(formattedTable);
         logger.newline();
-
-        if (updates.some(r => r.outdated)) {
-            logger.log("Run 'scoop update' to update apps.");
-        }
 
         return 0;
     }
