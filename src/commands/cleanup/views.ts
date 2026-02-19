@@ -59,7 +59,6 @@ export function displayCleanupSummary(logger: Logger, results: CleanupResult[]):
         totalVersionsRemoved > 0 || totalCacheFilesRemoved > 0 || totalVersionsFailed > 0;
 
     if (!hasActivity) {
-        logger.log("");
         logger.info("Nothing to clean up.");
         return;
     }
