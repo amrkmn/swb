@@ -57,9 +57,9 @@ describe("status command", () => {
         const result = await command.run(context, {}, { local: false, verbose: false });
 
         expect(result).toBe(0);
-        // Should log issues
+        // Should log updates
         expect(context.logger.log).toHaveBeenCalledWith(
-            expect.stringContaining("potential issues")
+            expect.stringContaining("potential updates")
         );
     });
 });
