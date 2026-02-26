@@ -38,7 +38,11 @@ async function buildAndUpload(): Promise<void> {
     await $`bun install --frozen-lockfile`;
 
     // Build executable with appropriate flags based on platform
-    const buildArgs = platform.includes("-baseline") ? ["--baseline"] : [];
+    const buildArgs = platform.includes("-baseline")
+        ? ["--baseline"]
+        : platform.includes("-arm64")
+          ? ["--arm64"]
+          : [];
     await $`bun run build ${buildArgs}`.env(process.env);
 
     // Create release archive
