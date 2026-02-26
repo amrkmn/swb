@@ -9,12 +9,15 @@ const version = process.env.SWB_VERSION ?? packageJson.version;
 
 // Parse command line flags
 const baselineFlag = process.argv.includes("--baseline");
+const arm64Flag = process.argv.includes("--arm64");
 
 // Determine target based on flag
-const target: Bun.Build.CompileTarget = baselineFlag
-    ? "bun-windows-x64-baseline"
-    : "bun-windows-x64";
-const variant = baselineFlag ? "Baseline" : "AVX2";
+const target: Bun.Build.CompileTarget = arm64Flag
+    ? "bun-windows-arm64"
+    : baselineFlag
+      ? "bun-windows-x64-baseline"
+      : "bun-windows-x64";
+const variant = arm64Flag ? "ARM64" : baselineFlag ? "Baseline" : "AVX2";
 
 console.log(`Building SWB v${version} (${variant})...`);
 
