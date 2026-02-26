@@ -27,7 +27,7 @@
     },
     "devDependencies": {
         "@types/bun": "latest",
-        "@types/node": "^24.10.13",
+        "@types/node": "^24.10.14",
         "prettier": "^3.8.1"
     },
     "peerDependencies": {
